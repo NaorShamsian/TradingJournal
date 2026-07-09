@@ -54,9 +54,6 @@ The application consists of three main components running in a local environment
 #### 📊 Pagination & Header Sorting Demo
 ![Pagination and Sorting Demo](screenshots/verify_sorting_pagination.webp)
 
-#### 🔄 Order-Preserved Position Grouping Demo
-![Order Preserved Grouping Demo](screenshots/verify_sorting_order_fixed.webp)
-
 ---
 
 ## 🛠️ Complete Technology Stack
