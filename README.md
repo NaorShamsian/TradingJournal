@@ -41,6 +41,16 @@ The application consists of three main components running in a local environment
 
 ---
 
+## 📸 Screenshots & Example Output
+
+### 📈 Personal Trading Dashboard & Equity Curve
+![Dashboard Screenshot](screenshots/dashboard.webp)
+
+### 📋 Interactive Trade Ledger & Multi-Sort Filters
+![Trades Ledger Screenshot](screenshots/trades_log.webp)
+
+---
+
 ## 🛠️ Complete Technology Stack
 
 The project is built entirely on modern, type-safe languages and scalable libraries:
