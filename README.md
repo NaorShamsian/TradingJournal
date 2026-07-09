@@ -50,8 +50,12 @@ The application consists of three main components running in a local environment
 ![Trades Ledger Screenshot](screenshots/trades_log.png)
 
 ### 🎥 Interactive Session Recordings
-*   [Full Session Demo - Pagination & Sorting (7.6MB WebP)](screenshots/verify_sorting_pagination.webp)
-*   [Detailed Session Demo - Order-Preserved Grouping (11KB WebP)](screenshots/verify_sorting_order_fixed.webp)
+
+#### 📊 Pagination & Header Sorting Demo
+![Pagination and Sorting Demo](screenshots/verify_sorting_pagination.webp)
+
+#### 🔄 Order-Preserved Position Grouping Demo
+![Order Preserved Grouping Demo](screenshots/verify_sorting_order_fixed.webp)
 
 ---
 
