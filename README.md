@@ -44,10 +44,10 @@ The application consists of three main components running in a local environment
 ## 📸 Screenshots & Example Output
 
 ### 📈 Personal Trading Dashboard & Equity Curve
-![Dashboard Screenshot](screenshots/dashboard.webp)
+![Dashboard Screenshot](screenshots/dashboard.png)
 
 ### 📋 Interactive Trade Ledger & Multi-Sort Filters
-![Trades Ledger Screenshot](screenshots/trades_log.webp)
+![Trades Ledger Screenshot](screenshots/trades_log.png)
 
 ---
 
