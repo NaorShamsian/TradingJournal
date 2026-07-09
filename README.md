@@ -49,6 +49,10 @@ The application consists of three main components running in a local environment
 ### 📋 Interactive Trade Ledger & Multi-Sort Filters
 ![Trades Ledger Screenshot](screenshots/trades_log.png)
 
+### 🎥 Interactive Session Recordings
+*   [Full Session Demo - Pagination & Sorting (7.6MB WebP)](screenshots/verify_sorting_pagination.webp)
+*   [Detailed Session Demo - Order-Preserved Grouping (11KB WebP)](screenshots/verify_sorting_order_fixed.webp)
+
 ---
 
 ## 🛠️ Complete Technology Stack
