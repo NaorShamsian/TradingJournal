@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Save, Plus, X, Settings as SettingsIcon, AlertCircle, ShieldAlert } from 'lucide-react';
+import { Save, Plus, X, Settings as SettingsIcon, AlertCircle, ShieldAlert, Layers } from 'lucide-react';
 import api from '../services/api';
 import { formatCurrency } from '../utils/format';
 import { useThemeLang } from '../context/ThemeLangContext';
@@ -17,6 +17,8 @@ export const SettingsPage: React.FC = () => {
   const [timezone, setTimezone] = useState<string>('UTC');
   const [strategies, setStrategies] = useState<string[]>([]);
   const [newStrategy, setNewStrategy] = useState<string>('');
+  const [mergeTrades, setMergeTrades] = useState<boolean>(true);
+  const [mergeWindowMinutes, setMergeWindowMinutes] = useState<number>(5);
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -29,6 +31,8 @@ export const SettingsPage: React.FC = () => {
         setCurrency(data.currency);
         setTimezone(data.timezone);
         setStrategies(data.strategies || []);
+        setMergeTrades(data.mergeTrades !== false);
+        setMergeWindowMinutes(data.mergeWindowMinutes ?? 5);
       } catch (err: any) {
         console.error(err);
         setError(err.message || 'Failed to fetch user configurations.');
@@ -63,6 +67,8 @@ export const SettingsPage: React.FC = () => {
         currency,
         timezone,
         strategies,
+        mergeTrades,
+        mergeWindowMinutes,
       });
 
 
@@ -249,6 +255,45 @@ export const SettingsPage: React.FC = () => {
                 {t('addStrategy')}
               </button>
             </div>
+          </div>
+        </div>
+
+        {/* Smart trade grouping */}
+        <div className="glass-panel p-6 rounded-2xl space-y-4 bg-white dark:bg-card border-slate-200 dark:border-border">
+          <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider border-b border-slate-200 dark:border-border pb-2.5 flex items-center gap-2">
+            <Layers className="h-5 w-5 text-primary" />
+            {lang === 'he' ? 'איחוד עסקאות חכם' : 'Smart trade merging'}
+          </h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 font-semibold leading-relaxed">
+            {lang === 'he'
+              ? 'פוזיציות באותו סימבול ובאותו כיוון שנפתחו בזמן שפוזיציה קודמת עדיין פתוחה, או תוך כמה דקות אחרי שנסגרה, מאוחדות לעסקה אחת. הרווח, הנפח וכל הסטטיסטיקות מחושבים על העסקה המאוחדת. הנתונים המקוריים לא משתנים, ואפשר תמיד לראות כל פוזיציה בנפרד.'
+              : 'Same-symbol, same-direction positions opened while a previous one is still open, or within a few minutes of it closing, are merged into one trade. P&L, volume and all statistics use the merged trade. The original MT5 data is untouched and you can always view each position separately.'}
+          </p>
+          <label className="flex items-center gap-3 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={mergeTrades}
+              onChange={(e) => setMergeTrades(e.target.checked)}
+              className="h-4 w-4 accent-primary"
+            />
+            <span className="text-sm font-bold">{lang === 'he' ? 'אחד עסקאות צמודות אוטומטית' : 'Automatically merge adjacent trades'}</span>
+          </label>
+          <div className="max-w-xs">
+            <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1.5">
+              {lang === 'he' ? 'חלון איחוד אחרי סגירה (דקות)' : 'Merge window after close (minutes)'}
+            </label>
+            <input
+              type="number"
+              min={0}
+              max={1440}
+              value={mergeWindowMinutes}
+              disabled={!mergeTrades}
+              onChange={(e) => setMergeWindowMinutes(Number(e.target.value))}
+              className="w-full px-3.5 py-2.5 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-border rounded-xl text-sm focus:outline-none focus:border-primary text-slate-800 dark:text-slate-200 font-semibold disabled:opacity-50"
+            />
+            <p className="text-[11px] text-slate-400 mt-1">
+              {lang === 'he' ? '0 = לאחד רק פוזיציות חופפות בזמן.' : '0 = merge only positions that overlap in time.'}
+            </p>
           </div>
         </div>
 

@@ -11,9 +11,10 @@ import {
   RefreshCw
 } from 'lucide-react';
 import api from '../services/api';
-import { CalendarDaySummary, Trade, Settings } from '../types';
+import { CalendarDaySummary, Trade, Settings, GroupedTrade } from '../types';
 import { formatCurrency, calculateTradeRR, formatRR } from '../utils/format';
 import { useThemeLang } from '../context/ThemeLangContext';
+import { MergedBadge, outcomeSurface } from '../components/Outcome';
 
 export const Calendar: React.FC = () => {
   const { t, lang } = useThemeLang();
@@ -327,10 +328,11 @@ export const Calendar: React.FC = () => {
                 {selectedDayTrades.map((t) => {
                   const calculatedRR = calculateTradeRR(t.netProfit, startingBalance, riskPercent);
                   return (
-                    <div key={t._id} className="p-4 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-border/60 rounded-xl flex items-center justify-between hover:border-slate-300 dark:hover:border-slate-700 transition">
+                    <div key={t._id} className={`p-4 border rounded-xl flex items-center justify-between transition ${outcomeSurface(t.netProfit)}`}>
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="font-extrabold text-slate-900 dark:text-white text-sm">{t.symbol}</span>
+                          <MergedBadge positions={(t as GroupedTrade).positionsCount} lang={lang} />
                           <span className={`px-1.5 py-0.5 rounded text-[9px] font-black ${
                             t.type === 'BUY' ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20' : 'bg-orange-500/10 text-orange-500 border border-orange-500/20'
                           }`}>

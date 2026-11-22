@@ -13,6 +13,8 @@ export interface ISettings extends Document {
   strategies: string[];
   sessions: ISessionDefinition[];
   riskPerTradePercent: number;
+  mergeTrades: boolean;
+  mergeWindowMinutes: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -41,6 +43,10 @@ const SettingsSchema = new Schema<ISettings>(
       ]
     },
     riskPerTradePercent: { type: Number, required: true, default: 1.0 },
+    // Smart grouping: merge same-symbol, same-direction positions that overlap
+    // or open within `mergeWindowMinutes` of each other into one trade.
+    mergeTrades: { type: Boolean, default: true },
+    mergeWindowMinutes: { type: Number, default: 5, min: 0, max: 1440 },
   },
   {
     timestamps: true,

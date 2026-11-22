@@ -2,15 +2,19 @@ import { Router } from 'express';
 import {
   getTrades,
   getTradeById,
+  getTradeGroup,
   importTrades,
   updateTrade,
   deleteTrade,
   resetDatabase,
 } from '../controllers/tradesController';
+import { getTradeCandles } from '../controllers/candlesController';
 
 const router = Router();
 
 router.get('/', getTrades);
+router.get('/:id/group', getTradeGroup);
+router.get('/:id/candles', getTradeCandles);
 router.get('/:id', getTradeById);
 router.post('/import', importTrades);
 router.post('/reset', resetDatabase);

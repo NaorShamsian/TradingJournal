@@ -8,6 +8,7 @@ import Calendar from './pages/Calendar';
 import Analytics from './pages/Analytics';
 import SyncCenter from './pages/SyncCenter';
 import SettingsPage from './pages/Settings';
+import AccountPage from './pages/Account';
 
 export const App: React.FC = () => {
   return (
@@ -20,6 +21,7 @@ export const App: React.FC = () => {
           <Route path="/calendar" element={<Calendar />} />
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/sync" element={<SyncCenter />} />
+          <Route path="/account" element={<AccountPage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Routes>
       </SidebarLayout>

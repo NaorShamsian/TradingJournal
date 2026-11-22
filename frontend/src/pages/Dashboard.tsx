@@ -23,18 +23,37 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  ResponsiveContainer
+  ResponsiveContainer,
+  Cell,
+  ReferenceLine
 } from 'recharts';
 import api from '../services/api';
-import { EquityCurvePoint, Trade, Settings } from '../types';
-import { formatCurrency, formatPercent, formatDate, calculateTradeRR, formatRR, groupTradesByPosition } from '../utils/format';
+import { EquityCurvePoint, GroupedTrade, Settings, MT5Account, BalanceOp } from '../types';
+import { formatCurrency, formatPercent, formatDate, calculateTradeRR, formatRR } from '../utils/format';
+import { MergedBadge, pnlText } from '../components/Outcome';
 import { useThemeLang } from '../context/ThemeLangContext';
 
 export const Dashboard: React.FC = () => {
   const { t, lang, theme } = useThemeLang();
   const [equityData, setEquityData] = useState<EquityCurvePoint[]>([]);
-  const [recentTrades, setRecentTrades] = useState<Trade[]>([]);
+  const [recentTrades, setRecentTrades] = useState<GroupedTrade[]>([]);
   const [settings, setSettings] = useState<Settings | null>(null);
+  const [liveBalance, setLiveBalance] = useState<number | null>(null);
+  const [balanceOps, setBalanceOps] = useState<BalanceOp[]>([]);
+  const [hasBalanceHistory, setHasBalanceHistory] = useState(false);
+  const [activeAccountId, setActiveAccountId] = useState<string>('');
+  // Equity curve: trading result only, or the real balance incl. deposits/withdrawals
+  const [curveMode, setCurveMode] = useState<'trading' | 'balance'>('trading');
+  // Manual break-even overrides per account + timeframe (default = interval opening balance)
+  const [breakEvenOverrides, setBreakEvenOverrides] = useState<Record<string, number>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('tj.breakEvenOverrides') || '{}');
+    } catch {
+      return {};
+    }
+  });
+  const [editingBreakEven, setEditingBreakEven] = useState(false);
+  const [breakEvenDraft, setBreakEvenDraft] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -52,14 +71,20 @@ export const Dashboard: React.FC = () => {
   const fetchData = async () => {
     try {
       setError(null);
-      const [, equityRes, settingsRes] = await Promise.all([
+      const [, equityRes, settingsRes, accountsRes] = await Promise.all([
         api.getStatsSummary(),
         api.getEquityCurve(),
         api.getSettings(),
+        api.getAccounts().catch(() => []),
       ]);
 
       setEquityData(equityRes.curve || []);
+      setBalanceOps(equityRes.balanceOps || []);
+      setHasBalanceHistory(!!equityRes.hasBalanceHistory);
       setSettings(settingsRes);
+      const active = (accountsRes as MT5Account[]).find((a) => a.isActive);
+      setLiveBalance(active?.mt5Info?.balance ?? null);
+      setActiveAccountId(active?._id || '');
     } catch (err: any) {
       console.error(err);
       setError(err.message || 'Failed to load dashboard statistics.');
@@ -154,28 +179,49 @@ export const Dashboard: React.FC = () => {
   const riskPercent = settings?.riskPerTradePercent || 1.0;
   const riskAmount = (startingBalance * riskPercent) / 100;
 
-  // Filter lists based on selected timeframe
-  const filterByTimeframe = <T extends { date?: string; closeTime?: string }>(list: T[]): T[] => {
-    const now = new Date();
-    return list.filter(item => {
-      const itemDateStr = item.date || item.closeTime;
-      if (!itemDateStr) return true;
-      const itemDate = new Date(itemDateStr);
-      const diffTime = now.getTime() - itemDate.getTime();
-      const diffDays = diffTime / (1000 * 60 * 60 * 24);
-      
-      if (timeframe === 'week') return diffDays <= 7;
-      if (timeframe === 'month') return diffDays <= 30;
-      if (timeframe === 'quarter') return diffDays <= 90;
-      if (timeframe === 'year') return diffDays <= 365;
-      return true; // 'all'
-    });
+
+  // ---- Interval boundaries & real balances ---------------------------------
+  // The account balance at any moment = all deposits/withdrawals up to then +
+  // all closed-trade P&L up to then (both come from MT5). This gives the real
+  // balance at which the selected interval opened and closed.
+  const TF_DAYS: Record<string, number> = { week: 7, month: 30, quarter: 90, year: 365 };
+  const nowMs = Date.now();
+  const allTradePts = equityData.filter(pt => pt.tradeIndex > 0);
+  const tsOf = (d: string) => new Date(d).getTime();
+  const opsWithTs = balanceOps.map(o => ({ ...o, ts: tsOf(o.time) }));
+  const intervalStartMs = timeframe === 'all'
+    ? (allTradePts.length ? tsOf(allTradePts[0].date) - 1 : nowMs)
+    : nowMs - TF_DAYS[timeframe] * 86400000;
+
+  const filteredEquityRaw = allTradePts.filter(pt => tsOf(pt.date) > intervalStartMs);
+  const pnlBeforeInterval = allTradePts.filter(pt => tsOf(pt.date) <= intervalStartMs).reduce((s, pt) => s + pt.netProfit, 0);
+  const flowsBeforeInterval = opsWithTs.filter(o => o.ts <= intervalStartMs).reduce((s, o) => s + o.amount, 0);
+  const intervalOps = opsWithTs.filter(o => o.ts > intervalStartMs);
+  const flowsInInterval = intervalOps.reduce((s, o) => s + o.amount, 0);
+
+  // Without synced deposit history, fall back to the configured starting balance
+  const openingBalance = hasBalanceHistory
+    ? flowsBeforeInterval + pnlBeforeInterval
+    : startingBalance + (timeframe === 'all' ? 0 : pnlBeforeInterval);
+
+  // Break-even reference: interval opening balance unless the user overrode it
+  const breakEvenKey = `${activeAccountId}:${timeframe}`;
+  const breakEvenOverride = breakEvenOverrides[breakEvenKey];
+  const breakEven = breakEvenOverride ?? openingBalance;
+  const saveBreakEvenOverride = (value: number | null) => {
+    const next = { ...breakEvenOverrides };
+    if (value === null) delete next[breakEvenKey];
+    else next[breakEvenKey] = value;
+    setBreakEvenOverrides(next);
+    try {
+      localStorage.setItem('tj.breakEvenOverrides', JSON.stringify(next));
+    } catch {
+      /* storage unavailable — keep in memory only */
+    }
   };
 
-  const filteredEquityRaw = filterByTimeframe(equityData.filter(pt => pt.tradeIndex > 0));
-
-  // Smart position grouping on recent trades
-  const groupedRecentTrades = groupTradesByPosition(recentTrades);
+  // Trades arrive already smart-grouped from the API
+  const groupedRecentTrades = recentTrades;
 
   // Dynamically calculate metrics based on the selected timeframe
   let calculatedNetPnL = 0;
@@ -185,13 +231,19 @@ export const Dashboard: React.FC = () => {
   let grossWins = 0;
   let grossLosses = 0;
   let maxDrawdownAmt = 0;
-  let peakEquity = startingBalance;
+  let peakEquity = openingBalance;
 
   let totalCalculatedRR = 0;
   let countRR = 0;
 
-  let runningBalance = startingBalance;
-  const progressiveEquityData = [{ name: 'Start', equity: startingBalance, netProfit: 0, date: '' }];
+  // Trading equity: opening balance + cumulative trade P&L (no deposits/withdrawals)
+  let runningBalance = openingBalance;
+  // `ts` = trade close time (ms) so the curve sits on a real date axis
+  type CurvePoint = { ts: number; name: string; equity: number; netProfit: number; date: string; flow?: number };
+  const curveStartTs = timeframe === 'all' ? (filteredEquityRaw.length ? tsOf(filteredEquityRaw[0].date) - 60000 : nowMs) : intervalStartMs;
+  const progressiveEquityData: CurvePoint[] = [
+    { ts: curveStartTs, name: 'Start', equity: openingBalance, netProfit: 0, date: '' },
+  ];
 
   // Recalculate metrics chronologically over filtered dataset
   filteredEquityRaw.forEach((pt, idx) => {
@@ -214,6 +266,7 @@ export const Dashboard: React.FC = () => {
     // Progressive curve data
     runningBalance += pt.netProfit;
     progressiveEquityData.push({
+      ts: new Date(pt.date).getTime(),
       name: `Trade #${idx + 1}`,
       equity: runningBalance,
       netProfit: pt.netProfit,
@@ -237,7 +290,63 @@ export const Dashboard: React.FC = () => {
   const averageLoss = calculatedLosses > 0 ? grossLosses / calculatedLosses : 0;
   const averageCalculatedRR = countRR > 0 ? totalCalculatedRR / countRR : 0;
   const maxDrawdownPercent = peakEquity > 0 ? (maxDrawdownAmt / peakEquity) * 100 : 0;
-  const currentRealBalance = startingBalance + calculatedNetPnL;
+
+  // Real balance at the end of the interval (every interval ends "now")
+  const closingBalance = hasBalanceHistory
+    ? openingBalance + calculatedNetPnL + flowsInInterval
+    : liveBalance ?? openingBalance + calculatedNetPnL;
+  const intervalReturnPct = openingBalance > 0 ? (calculatedNetPnL / openingBalance) * 100 : 0;
+  const pnlVsBreakEven = openingBalance + calculatedNetPnL - breakEven;
+
+  // Real balance curve (steps at deposits / withdrawals)
+  const balanceCurveData: CurvePoint[] = (() => {
+    const events = [
+      ...filteredEquityRaw.map((pt, i) => ({ ts: tsOf(pt.date), name: `Trade #${i + 1}`, pnl: pt.netProfit, flow: 0, date: pt.date })),
+      ...intervalOps.map(o => ({ ts: o.ts, name: o.amount >= 0 ? 'Deposit' : 'Withdrawal', pnl: 0, flow: o.amount, date: o.time })),
+    ].sort((a, b) => a.ts - b.ts);
+    let bal = openingBalance;
+    const pts: CurvePoint[] = [{ ts: curveStartTs, name: 'Start', equity: openingBalance, netProfit: 0, date: '' }];
+    events.forEach(e => {
+      bal += e.pnl + e.flow;
+      pts.push({ ts: e.ts, name: e.name, equity: bal, netProfit: e.pnl, date: formatDate(e.date), flow: e.flow || undefined });
+    });
+    return pts;
+  })();
+  const chartData = curveMode === 'balance' ? balanceCurveData : progressiveEquityData;
+
+  // Equity curve: date axis, break-even line and "profitable since" marker
+  const locale = lang === 'he' ? 'he-IL' : 'en-US';
+  const equitySpanDays = chartData.length > 1
+    ? (chartData[chartData.length - 1].ts - chartData[0].ts) / 86400000
+    : 0;
+  const formatAxisDate = (ts: number) =>
+    new Date(ts).toLocaleDateString(locale, equitySpanDays > 300
+      ? { month: 'short', year: '2-digit', timeZone: 'UTC' }
+      : { day: 'numeric', month: 'short', timeZone: 'UTC' });
+  const formatFullDate = (ts: number) =>
+    new Date(ts).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+
+  const equityValues = chartData.map((p) => p.equity);
+  const equityMax = Math.max(...equityValues);
+  const equityMin = Math.min(...equityValues);
+  // Gradient split point: where the break-even sits between max (0) and min (1)
+  const breakEvenOffset = equityMax === equityMin
+    ? (equityMax >= breakEven ? 1 : 0)
+    : Math.min(1, Math.max(0, (equityMax - breakEven) / (equityMax - equityMin)));
+
+  // Last time the trading curve crossed above break-even and stayed there
+  // (always measured on trading equity, so deposits don't count as "profit")
+  let profitableSinceTs: number | null = null;
+  const lastEquity = progressiveEquityData[progressiveEquityData.length - 1];
+  if (progressiveEquityData.length > 1 && lastEquity.equity > breakEven) {
+    for (let i = progressiveEquityData.length - 1; i >= 1; i--) {
+      if (progressiveEquityData[i - 1].equity <= breakEven) {
+        profitableSinceTs = progressiveEquityData[i].ts;
+        break;
+      }
+    }
+    if (profitableSinceTs === null) profitableSinceTs = progressiveEquityData[1].ts; // profitable from the first trade
+  }
 
   // Daily PnL Bar Chart preparation
   const dailyPnLMap: { [key: string]: number } = {};
@@ -300,32 +409,125 @@ export const Dashboard: React.FC = () => {
       </div>
 
       {/* Account Info and Risk Definition Banner */}
-      <div className="p-5 rounded-2xl bg-white dark:bg-card border border-slate-200 dark:border-border flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
-        <div>
+      <div className="p-5 rounded-2xl bg-white dark:bg-card border border-slate-200 dark:border-border flex flex-col xl:flex-row xl:items-center justify-between gap-4 shadow-sm">
+        <div className="flex-1">
           <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
             <TrendingUp className="h-4.5 w-4.5 text-primary" />
             {lang === 'he' ? 'פרטי ותקדמות החשבון' : 'Account Progress Details'}
           </h3>
-          <div className="flex flex-wrap gap-x-6 gap-y-2 mt-2 text-xs md:text-sm">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-x-6 gap-y-3 mt-3 text-xs md:text-sm">
             <div>
-              <span className="text-slate-400 font-semibold">{t('startingBalance')}: </span>
-              <span className="font-bold text-slate-800 dark:text-white">{formatCurrency(startingBalance, currency)}</span>
+              <span className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                {lang === 'he' ? 'יתרת פתיחה לתקופה' : 'Opening balance'}
+              </span>
+              <span className="font-bold text-slate-800 dark:text-white">{formatCurrency(openingBalance, currency)}</span>
+              <span className="block text-[10px] text-slate-400 font-semibold">
+                {curveStartTs < nowMs ? formatFullDate(curveStartTs) : ''}
+              </span>
             </div>
-            <div className="hidden md:block text-slate-200 dark:text-slate-700">|</div>
             <div>
-              <span className="text-slate-400 font-semibold">{t('realAccountBalance')}: </span>
-              <span className="font-extrabold text-primary">{formatCurrency(currentRealBalance, currency)}</span>
+              <span className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                {lang === 'he' ? 'יתרת סגירה' : 'Closing balance'}
+              </span>
+              <span className="font-extrabold text-primary">{formatCurrency(closingBalance, currency)}</span>
+              <span className="block text-[10px] text-slate-400 font-semibold">{lang === 'he' ? 'היום' : 'Today'}</span>
+            </div>
+            <div>
+              <span className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                {lang === 'he' ? 'רווח ממסחר בתקופה' : 'Trading P&L'}
+              </span>
+              <span className={`font-extrabold ${pnlText(calculatedNetPnL)}`}>
+                {calculatedNetPnL > 0 ? '+' : ''}{formatCurrency(calculatedNetPnL, currency)}
+              </span>
+              <span className={`block text-[10px] font-bold ${pnlText(intervalReturnPct)}`}>
+                {intervalReturnPct > 0 ? '+' : ''}{intervalReturnPct.toFixed(1)}% {lang === 'he' ? 'מיתרת הפתיחה' : 'of opening'}
+              </span>
+            </div>
+            <div>
+              <span className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                {lang === 'he' ? 'הפקדות / משיכות' : 'Deposits / withdrawals'}
+              </span>
+              <span className="font-bold text-slate-800 dark:text-white">
+                {flowsInInterval > 0 ? '+' : ''}{formatCurrency(flowsInInterval, currency)}
+              </span>
+              <span className="block text-[10px] text-slate-400 font-semibold">
+                {intervalOps.length} {lang === 'he' ? 'פעולות' : 'operations'}
+              </span>
+            </div>
+            {/* Break-even: defaults to the opening balance, can be overridden */}
+            <div>
+              <span className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                {lang === 'he' ? 'נקודת איזון' : 'Break-even'}
+              </span>
+              {editingBreakEven ? (
+                <form
+                  className="flex items-center gap-1"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const v = Number(breakEvenDraft);
+                    if (Number.isFinite(v)) saveBreakEvenOverride(v);
+                    setEditingBreakEven(false);
+                  }}
+                >
+                  <input
+                    autoFocus
+                    type="number"
+                    step="0.01"
+                    value={breakEvenDraft}
+                    onChange={(e) => setBreakEvenDraft(e.target.value)}
+                    className="w-24 px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-900 border border-primary text-xs font-bold"
+                  />
+                  <button type="submit" className="text-[10px] font-bold text-primary">{lang === 'he' ? 'שמור' : 'Save'}</button>
+                </form>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => { setBreakEvenDraft(String(Math.round(breakEven * 100) / 100)); setEditingBreakEven(true); }}
+                  className="font-bold text-slate-800 dark:text-white hover:text-primary underline decoration-dotted underline-offset-4"
+                  title={lang === 'he' ? 'לחץ לשינוי' : 'Click to change'}
+                >
+                  {formatCurrency(breakEven, currency)}
+                </button>
+              )}
+              <span className="block text-[10px] font-semibold">
+                {breakEvenOverride !== undefined ? (
+                  <button type="button" onClick={() => saveBreakEvenOverride(null)} className="text-primary hover:underline">
+                    {lang === 'he' ? 'ידני · חזור לאוטומטי' : 'Manual · reset to auto'}
+                  </button>
+                ) : (
+                  <span className="text-slate-400">{lang === 'he' ? 'אוטומטי = יתרת הפתיחה' : 'Auto = opening balance'}</span>
+                )}
+              </span>
             </div>
           </div>
+          {!hasBalanceHistory && (
+            <p className="text-[11px] text-amber-500 font-semibold mt-2">
+              {lang === 'he'
+                ? 'היסטוריית ההפקדות עוד לא סונכרנה מ-MT5, לכן היתרות מחושבות מיתרת הבסיס שהוגדרה. סנכרן כדי לקבל יתרות מדויקות.'
+                : 'Deposit history has not been synced from MT5 yet, so balances use the configured base balance. Sync to get exact balances.'}
+            </p>
+          )}
         </div>
         
         {/* Risk Info badge */}
-        <div className="px-4 py-3 bg-slate-50 dark:bg-slate-950/40 border border-slate-200 dark:border-border/60 rounded-xl">
-          <span className="text-[10px] text-slate-400 uppercase tracking-widest block font-bold">Risk parameters (1R Size)</span>
-          <p className="text-xs md:text-sm text-slate-700 dark:text-slate-200 font-bold mt-0.5">
-            1R = <span className="text-primary font-black">{formatCurrency(riskAmount, currency)}</span> 
-            <span className="text-[10px] text-slate-455 font-semibold ml-1 mr-1">({riskPercent}% of starting balance)</span>
-          </p>
+        <div className="flex items-center gap-3">
+          <div className="px-4 py-3 bg-slate-50 dark:bg-slate-950/40 border border-slate-200 dark:border-border/60 rounded-xl">
+            <span className="text-[10px] text-slate-400 uppercase tracking-widest block font-bold">
+              {lang === 'he' ? 'פרמטרי סיכון (1R)' : 'Risk parameters (1R Size)'}
+            </span>
+            <p className="text-xs md:text-sm text-slate-700 dark:text-slate-200 font-bold mt-0.5">
+              1R = <span className="text-primary font-black">{formatCurrency(riskAmount, currency)}</span>
+              <span className="text-[10px] text-slate-455 font-semibold ml-1 mr-1">
+                ({riskPercent}% {lang === 'he' ? 'מיתרת הבסיס של החשבון' : 'of account base balance'})
+              </span>
+            </p>
+          </div>
+          <Link
+            to="/account"
+            className="px-3.5 py-2.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-border hover:border-primary hover:text-primary transition whitespace-nowrap"
+          >
+            {lang === 'he' ? 'עריכה' : 'Edit'}
+          </Link>
         </div>
       </div>
 
@@ -359,7 +561,7 @@ export const Dashboard: React.FC = () => {
           </div>
           <div className="mt-3">
             <h2 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white">
-              {formatPercent(calculatedWinRate)}
+              {formatPercent(calculatedWinRate * 100)}
             </h2>
             <div className="flex items-center gap-1.5 text-[10px] md:text-xs font-bold text-slate-500 mt-1">
               <span className="text-emerald-500">{calculatedWins} W</span>
@@ -402,7 +604,7 @@ export const Dashboard: React.FC = () => {
               {totalTradesCount}
             </h2>
             <p className="text-[10px] md:text-xs text-slate-455 font-semibold mt-1">
-              {lang === 'he' ? 'עסקאות מסונכרנות מ-MT5' : 'MT5 synced closed deals'}
+              {lang === 'he' ? 'עסקאות (פוזיציות צמודות אוחדו)' : 'Trades (adjacent positions merged)'}
             </p>
           </div>
         </div>
@@ -427,7 +629,7 @@ export const Dashboard: React.FC = () => {
         <div>
           <span className="text-[10px] md:text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider font-bold">{t('maxDrawdown')}</span>
           <p className="text-sm md:text-base font-black text-orange-500 mt-0.5">
-            {formatPercent(maxDrawdownPercent / 100)} 
+            {formatPercent(maxDrawdownPercent)} 
             <span className="text-xs text-slate-400 font-bold ml-1 mr-1">({formatCurrency(maxDrawdownAmt, currency)})</span>
           </p>
         </div>
@@ -436,45 +638,156 @@ export const Dashboard: React.FC = () => {
       {/* Main Charts Area */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Equity Curve Chart */}
-        <div className="p-5 rounded-2xl border border-slate-200 dark:border-border space-y-4 bg-white dark:bg-card shadow-sm">
-          <div className="flex justify-between items-center">
-            <h3 className="text-sm md:text-base font-extrabold text-slate-900 dark:text-white">
-              {lang === 'he' ? 'עקומת גידול הון (Equity Curve)' : 'Equity Growth Curve'}
-            </h3>
-            <span className="text-xs text-slate-400 font-semibold">{lang === 'he' ? 'התקדמות הון כרונולוגית' : 'Chronological accumulation'}</span>
+        <div className="lg:col-span-2 p-5 rounded-2xl border border-slate-200 dark:border-border space-y-4 bg-white dark:bg-card shadow-sm">
+          <div className="flex flex-wrap justify-between items-start gap-2">
+            <div>
+              <h3 className="text-sm md:text-base font-extrabold text-slate-900 dark:text-white">
+                {lang === 'he' ? 'עקומת גידול הון (Equity Curve)' : 'Equity Growth Curve'}
+              </h3>
+              <p className="text-xs font-semibold mt-0.5">
+                {profitableSinceTs !== null ? (
+                  <span className="text-emerald-500">
+                    {lang === 'he' ? 'ברווח ברציפות מאז ' : 'In profit continuously since '}
+                    <span className="font-black">{formatFullDate(profitableSinceTs)}</span>
+                  </span>
+                ) : progressiveEquityData.length > 1 ? (
+                  <span className="text-rose-500">
+                    {lang === 'he' ? 'כרגע מתחת לנקודת האיזון' : 'Currently below break-even'}
+                    {' '}({pnlVsBreakEven > 0 ? '+' : ''}{formatCurrency(pnlVsBreakEven, currency)})
+                  </span>
+                ) : (
+                  <span className="text-slate-400">{lang === 'he' ? 'אין עסקאות בתקופה' : 'No trades in this period'}</span>
+                )}
+              </p>
+            </div>
+            <div className="flex flex-col items-end gap-2">
+              {/* Curve mode toggle */}
+              <div className="inline-flex p-0.5 rounded-lg bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-border">
+                {(['trading', 'balance'] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setCurveMode(m)}
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition ${
+                      curveMode === m ? 'bg-primary text-white' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    {m === 'trading'
+                      ? (lang === 'he' ? 'רווח ממסחר' : 'Trading equity')
+                      : (lang === 'he' ? 'יתרה בפועל' : 'Actual balance')}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-3 text-[11px] font-semibold text-slate-400">
+                <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-emerald-500" />{lang === 'he' ? 'מעל נקודת האיזון' : 'Above break-even'}</span>
+                <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-rose-500" />{lang === 'he' ? 'מתחת' : 'Below'}</span>
+              </div>
+            </div>
           </div>
+          {curveMode === 'balance' && (
+            <p className="text-[11px] text-slate-400 font-semibold -mt-2">
+              {lang === 'he'
+                ? 'כולל הפקדות ומשיכות, לכן קפיצות בעקומה אינן בהכרח רווח. "ברווח מאז" מחושב תמיד לפי המסחר בלבד.'
+                : 'Includes deposits and withdrawals, so jumps are not necessarily profit. "In profit since" always uses trading only.'}
+            </p>
+          )}
           <div className="h-72 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={progressiveEquityData}>
+              <AreaChart data={chartData}>
                 <defs>
-                  <linearGradient id="colorEquity" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#7c3aed" stopOpacity={0.25}/>
-                    <stop offset="95%" stopColor="#7c3aed" stopOpacity={0}/>
+                  {/* Green above the starting balance, red below it */}
+                  <linearGradient id="equityStroke" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset={breakEvenOffset} stopColor="#10b981" />
+                    <stop offset={breakEvenOffset} stopColor="#ef4444" />
+                  </linearGradient>
+                  <linearGradient id="equityFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset={0} stopColor="#10b981" stopOpacity={0.28} />
+                    <stop offset={breakEvenOffset} stopColor="#10b981" stopOpacity={0.04} />
+                    <stop offset={breakEvenOffset} stopColor="#ef4444" stopOpacity={0.04} />
+                    <stop offset={1} stopColor="#ef4444" stopOpacity={0.28} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(124,58,237,0.06)" vertical={false} />
-                <XAxis 
-                  dataKey="name" 
-                  stroke="rgba(100,116,139,0.5)" 
-                  fontSize={10} 
-                  tickLine={false} 
+                <XAxis
+                  dataKey="ts"
+                  type="number"
+                  scale="time"
+                  domain={['dataMin', 'dataMax']}
+                  tickFormatter={formatAxisDate}
+                  minTickGap={40}
+                  stroke="rgba(100,116,139,0.5)"
+                  fontSize={10}
+                  tickLine={false}
                   axisLine={false}
                 />
+                <ReferenceLine
+                  y={breakEven}
+                  stroke="#94a3b8"
+                  strokeDasharray="4 4"
+                  label={{
+                    value: `${lang === 'he' ? 'נקודת איזון' : 'Break-even'} ${formatCurrency(breakEven, currency)}`,
+                    position: 'insideTopLeft',
+                    fill: '#94a3b8',
+                    fontSize: 10,
+                  }}
+                />
+                {curveMode === 'balance' && intervalOps.map((o) => (
+                  <ReferenceLine
+                    key={o.ts}
+                    x={o.ts}
+                    stroke={o.amount >= 0 ? '#3b82f6' : '#f59e0b'}
+                    strokeOpacity={0.5}
+                    strokeDasharray="2 3"
+                  />
+                ))}
+                {profitableSinceTs !== null && (
+                  <ReferenceLine
+                    x={profitableSinceTs}
+                    stroke="#10b981"
+                    strokeDasharray="3 3"
+                    label={{ value: lang === 'he' ? 'מכאן ברווח' : 'Profitable from here', position: 'insideTopRight', fill: '#10b981', fontSize: 10, fontWeight: 700 }}
+                  />
+                )}
                 <YAxis 
                   stroke="rgba(100,116,139,0.5)" 
                   fontSize={10} 
                   tickLine={false} 
                   axisLine={false}
-                  tickFormatter={(val) => `$${val}`}
-                  domain={['dataMin - 1000', 'dataMax + 1000']}
+                  tickFormatter={(val) => `$${Math.round(Number(val)).toLocaleString('en-US')}`}
+                  width={64}
+                  domain={[
+                    (min: number) => Math.floor(min - Math.max(Math.abs(min) * 0.05, 10)),
+                    (max: number) => Math.ceil(max + Math.max(Math.abs(max) * 0.05, 10)),
+                  ]}
                 />
                 <Tooltip
                   contentStyle={{ background: tooltipBg, border: `1px solid ${tooltipBorder}`, borderRadius: '12px' }}
                   labelStyle={{ color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}
                   itemStyle={{ color: tooltipText, fontSize: '13px' }}
-                  formatter={(value: any) => [formatCurrency(Number(value), currency), 'Balance']}
+                  formatter={(value: any) => [formatCurrency(Number(value), currency), lang === 'he' ? 'יתרה' : 'Balance']}
+                  labelFormatter={(ts: any, payload: any) => {
+                    const p = payload?.[0]?.payload;
+                    if (!p || p.name === 'Start') {
+                      return `${lang === 'he' ? 'פתיחת התקופה' : 'Interval open'} · ${formatFullDate(Number(ts))}`;
+                    }
+                    if (p.flow) {
+                      const label = p.flow >= 0 ? (lang === 'he' ? 'הפקדה' : 'Deposit') : (lang === 'he' ? 'משיכה' : 'Withdrawal');
+                      return `${formatFullDate(Number(ts))} · ${label} ${formatCurrency(p.flow, currency)}`;
+                    }
+                    const pnl = `${p.netProfit >= 0 ? '+' : ''}${formatCurrency(p.netProfit, currency)}`;
+                    return `${formatFullDate(Number(ts))} · ${p.name.replace('Trade', lang === 'he' ? 'עסקה' : 'Trade')} (${pnl})`;
+                  }}
                 />
-                <Area type="monotone" dataKey="equity" stroke="#7c3aed" strokeWidth={2.5} fillOpacity={1} fill="url(#colorEquity)" />
+                <Area
+                  type={curveMode === 'balance' ? 'stepAfter' : 'monotone'}
+                  dataKey="equity"
+                  stroke="url(#equityStroke)"
+                  strokeWidth={2.5}
+                  fillOpacity={1}
+                  fill="url(#equityFill)"
+                  baseValue={breakEven}
+                  isAnimationActive={false}
+                />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -513,17 +826,12 @@ export const Dashboard: React.FC = () => {
                     itemStyle={{ color: tooltipText, fontSize: '13px' }}
                     formatter={(value: any) => [formatCurrency(Number(value), currency), 'Net P&L']}
                   />
-                  <Bar 
-                    dataKey="profit" 
-                    radius={[4, 4, 0, 0]}
-                    fill="#7c3aed"
-                    children={dailyPnLData.map((entry, index) => (
-                      <rect
-                        key={`rect-${index}`}
-                        fill={entry.profit >= 0 ? '#10b981' : '#ef4444'}
-                      />
+                  <Bar dataKey="profit" radius={[4, 4, 0, 0]}>
+                    {/* Green = profitable day, red = losing day */}
+                    {dailyPnLData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.profit >= 0 ? '#10b981' : '#ef4444'} />
                     ))}
-                  />
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -611,20 +919,26 @@ export const Dashboard: React.FC = () => {
                 <tbody className="divide-y divide-slate-200 dark:divide-border bg-white dark:bg-slate-900/10 font-semibold text-slate-700 dark:text-slate-200">
                   {groupedRecentTrades.map((trade) => {
                     const profitVal = trade.netProfit;
-                    const isPositive = profitVal >= 0;
                     return (
-                      <tr key={trade._id} className="hover:bg-slate-100/50 dark:hover:bg-slate-800/20 transition-colors">
+                      <tr
+                        key={trade._id}
+                        className={`transition-colors ${
+                          profitVal > 0
+                            ? 'bg-emerald-50/60 dark:bg-emerald-500/[0.05] hover:bg-emerald-100/60 dark:hover:bg-emerald-500/10 shadow-[inset_3px_0_0_#10b981]'
+                            : profitVal < 0
+                              ? 'bg-rose-50/60 dark:bg-rose-500/[0.05] hover:bg-rose-100/60 dark:hover:bg-rose-500/10 shadow-[inset_3px_0_0_#ef4444]'
+                              : 'hover:bg-slate-100/50 dark:hover:bg-slate-800/20'
+                        }`}
+                      >
                         <td className="px-4 py-3 text-slate-500 dark:text-slate-400 font-normal whitespace-nowrap">
                           {formatDate(trade.closeTime)}
                         </td>
                         <td className="px-4 py-3 font-extrabold whitespace-nowrap">
                           <div className="flex items-center gap-2">
-                            <span className="text-slate-900 dark:text-white">{trade.symbol}</span>
-                            {trade.isGrouped && (
-                              <span className="px-1.5 py-0.2 bg-primary/10 border border-primary/20 text-primary rounded-md text-[8px] font-black tracking-wider uppercase">
-                                {trade.exitsCount} Exits
-                              </span>
-                            )}
+                            <Link to={`/trades/${trade._id}`} className="text-slate-900 dark:text-white hover:text-primary hover:underline">
+                              {trade.symbol}
+                            </Link>
+                            <MergedBadge positions={trade.positionsCount} lang={lang} compact />
                           </div>
                         </td>
                         <td className="px-4 py-3">
@@ -645,9 +959,7 @@ export const Dashboard: React.FC = () => {
                         <td className="px-4 py-3 text-slate-400 dark:text-slate-500 font-mono">
                           {trade.exitPrice.toFixed(5)}
                         </td>
-                        <td className={`px-4 py-3 text-right font-black whitespace-nowrap ${
-                          isPositive ? 'text-emerald-500' : 'text-rose-500'
-                        }`}>
+                        <td className={`px-4 py-3 text-right font-black whitespace-nowrap ${pnlText(profitVal)}`}>
                           {profitVal > 0 ? '+' : ''}{formatCurrency(profitVal, currency)}
                         </td>
                       </tr>

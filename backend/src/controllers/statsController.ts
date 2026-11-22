@@ -1,8 +1,13 @@
 import { Request, Response } from 'express';
-import Trade from '../models/Trade';
 import MT5Account from '../models/MT5Account';
+import BalanceOperation from '../models/BalanceOperation';
+import { loadTradeUnits, getActiveAccountNumber } from '../services/tradeUnits';
+import { TradeGroup } from '../utils/tradeGrouping';
 
-// Helper to get initial balance from the active MT5 account profile
+// All statistics are computed over trade "units": smart-grouped trades (several
+// MT5 positions that form one trade idea count as one trade). Pass ?raw=true to
+// compute per MT5 position instead.
+
 const getInitialBalance = async (): Promise<number> => {
   try {
     const activeAccount = await MT5Account.findOne({ isActive: true });
@@ -12,42 +17,56 @@ const getInitialBalance = async (): Promise<number> => {
   }
 };
 
-// Helper to get currently active account number for trade filtering
-const getActiveAccountNumber = async (): Promise<string> => {
-  try {
-    const activeAccount = await MT5Account.findOne({ isActive: true });
-    return activeAccount ? String(activeAccount.login) : 'NO_ACTIVE_ACCOUNT';
-  } catch {
-    return 'NO_ACTIVE_ACCOUNT';
-  }
+const unitsFor = async (req: Request): Promise<TradeGroup[]> => {
+  const units = await loadTradeUnits({}, { raw: req.query.raw === 'true' });
+  return units.sort((a, b) => +new Date(a.closeTime) - +new Date(b.closeTime));
 };
+
+const dayKey = (d: Date) => new Date(d).toISOString().split('T')[0];
+
+interface Bucket {
+  totalTrades: number;
+  netProfit: number;
+  winCount: number;
+  lossCount: number;
+  totalVolume: number;
+  totalRR: number;
+  rrCount: number;
+}
+
+const bucketize = (units: TradeGroup[], keyOf: (u: TradeGroup) => string | number) => {
+  const map = new Map<string | number, Bucket>();
+  units.forEach((u) => {
+    const k = keyOf(u);
+    const b = map.get(k) || { totalTrades: 0, netProfit: 0, winCount: 0, lossCount: 0, totalVolume: 0, totalRR: 0, rrCount: 0 };
+    b.totalTrades++;
+    b.netProfit += u.netProfit;
+    if (u.netProfit > 0) b.winCount++;
+    else if (u.netProfit < 0) b.lossCount++;
+    b.totalVolume += u.volume;
+    if (u.rr !== undefined && u.rr > 0) {
+      b.totalRR += u.rr;
+      b.rrCount++;
+    }
+    map.set(k, b);
+  });
+  return map;
+};
+
+const winRateOf = (b: Bucket) => (b.totalTrades > 0 ? (b.winCount / b.totalTrades) * 100 : 0);
 
 // GET /api/stats/summary
 export const getSummaryStats = async (req: Request, res: Response) => {
   try {
     const initialBalance = await getInitialBalance();
-    const accountNumber = await getActiveAccountNumber();
-    const trades = await Trade.find({ accountNumber }).sort({ closeTime: 1 });
+    const trades = await unitsFor(req);
 
     if (trades.length === 0) {
       return res.json({
-        totalNetPnL: 0,
-        winRate: 0,
-        profitFactor: 0,
-        totalTrades: 0,
-        winCount: 0,
-        lossCount: 0,
-        breakevenCount: 0,
-        averageWin: 0,
-        averageLoss: 0,
-        averageRR: 0,
-        maxDrawdownAmount: 0,
-        maxDrawdownPercent: 0,
-        bestDay: 0,
-        worstDay: 0,
-        thisWeekPnL: 0,
-        thisMonthPnL: 0,
-        currentBalance: initialBalance,
+        totalNetPnL: 0, winRate: 0, profitFactor: 0, totalTrades: 0, winCount: 0, lossCount: 0,
+        breakevenCount: 0, averageWin: 0, averageLoss: 0, averageRR: 0, maxDrawdownAmount: 0,
+        maxDrawdownPercent: 0, bestDay: 0, worstDay: 0, thisWeekPnL: 0, thisMonthPnL: 0,
+        currentBalance: initialBalance, rawPositions: 0,
       });
     }
 
@@ -59,22 +78,17 @@ export const getSummaryStats = async (req: Request, res: Response) => {
     let grossLoss = 0;
     let totalRR = 0;
     let rrCount = 0;
-
-    // Equity and Drawdown
     let currentBalance = initialBalance;
     let peak = initialBalance;
     let maxDrawdownAmount = 0;
     let maxDrawdownPercent = 0;
-
-    // Daily tracking
     const dailyPnLMap: { [key: string]: number } = {};
 
-    // For Week & Month stats
     const now = new Date();
-    const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay());
     startOfWeek.setHours(0, 0, 0, 0);
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
     let thisWeekPnL = 0;
     let thisMonthPnL = 0;
 
@@ -82,20 +96,12 @@ export const getSummaryStats = async (req: Request, res: Response) => {
       totalNetPnL += trade.netProfit;
       currentBalance += trade.netProfit;
 
-      // Drawdown calculation
-      if (currentBalance > peak) {
-        peak = currentBalance;
-      }
+      if (currentBalance > peak) peak = currentBalance;
       const drawdownAmt = peak - currentBalance;
       const drawdownPct = peak > 0 ? (drawdownAmt / peak) * 100 : 0;
-      if (drawdownAmt > maxDrawdownAmount) {
-        maxDrawdownAmount = drawdownAmt;
-      }
-      if (drawdownPct > maxDrawdownPercent) {
-        maxDrawdownPercent = drawdownPct;
-      }
+      if (drawdownAmt > maxDrawdownAmount) maxDrawdownAmount = drawdownAmt;
+      if (drawdownPct > maxDrawdownPercent) maxDrawdownPercent = drawdownPct;
 
-      // Win / Loss / Breakeven counts
       if (trade.netProfit > 0) {
         winCount++;
         grossProfit += trade.netProfit;
@@ -106,55 +112,41 @@ export const getSummaryStats = async (req: Request, res: Response) => {
         breakevenCount++;
       }
 
-      // R:R avg
       if (trade.rr !== undefined && trade.rr > 0) {
         totalRR += trade.rr;
         rrCount++;
       }
 
-      // Daily mapping
-      const dateStr = new Date(trade.closeTime).toISOString().split('T')[0];
-      dailyPnLMap[dateStr] = (dailyPnLMap[dateStr] || 0) + trade.netProfit;
+      const key = dayKey(trade.closeTime);
+      dailyPnLMap[key] = (dailyPnLMap[key] || 0) + trade.netProfit;
 
-      // This week/month profit aggregation
       const closeDate = new Date(trade.closeTime);
-      if (closeDate >= startOfWeek) {
-        thisWeekPnL += trade.netProfit;
-      }
-      if (closeDate >= startOfMonth) {
-        thisMonthPnL += trade.netProfit;
-      }
+      if (closeDate >= startOfWeek) thisWeekPnL += trade.netProfit;
+      if (closeDate >= startOfMonth) thisMonthPnL += trade.netProfit;
     });
 
     const totalTrades = trades.length;
-    const winRate = totalTrades > 0 ? Number(((winCount / totalTrades) * 100).toFixed(2)) : 0;
-    const profitFactor = grossLoss > 0 ? Number((grossProfit / grossLoss).toFixed(2)) : Number(grossProfit.toFixed(2));
-    const averageWin = winCount > 0 ? Number((grossProfit / winCount).toFixed(2)) : 0;
-    const averageLoss = lossCount > 0 ? Number((grossLoss / lossCount).toFixed(2)) : 0;
-    const averageRR = rrCount > 0 ? Number((totalRR / rrCount).toFixed(2)) : 0;
-
     const dailyPnLs = Object.values(dailyPnLMap);
-    const bestDay = dailyPnLs.length > 0 ? Math.max(...dailyPnLs) : 0;
-    const worstDay = dailyPnLs.length > 0 ? Math.min(...dailyPnLs) : 0;
 
     res.json({
       totalNetPnL,
-      winRate,
-      profitFactor,
+      winRate: Number(((winCount / totalTrades) * 100).toFixed(2)),
+      profitFactor: grossLoss > 0 ? Number((grossProfit / grossLoss).toFixed(2)) : Number(grossProfit.toFixed(2)),
       totalTrades,
       winCount,
       lossCount,
       breakevenCount,
-      averageWin,
-      averageLoss,
-      averageRR,
+      averageWin: winCount > 0 ? Number((grossProfit / winCount).toFixed(2)) : 0,
+      averageLoss: lossCount > 0 ? Number((grossLoss / lossCount).toFixed(2)) : 0,
+      averageRR: rrCount > 0 ? Number((totalRR / rrCount).toFixed(2)) : 0,
       maxDrawdownAmount: Number(maxDrawdownAmount.toFixed(2)),
       maxDrawdownPercent: Number(maxDrawdownPercent.toFixed(2)),
-      bestDay: Number(bestDay.toFixed(2)),
-      worstDay: Number(worstDay.toFixed(2)),
+      bestDay: dailyPnLs.length ? Number(Math.max(...dailyPnLs).toFixed(2)) : 0,
+      worstDay: dailyPnLs.length ? Number(Math.min(...dailyPnLs).toFixed(2)) : 0,
       thisWeekPnL: Number(thisWeekPnL.toFixed(2)),
       thisMonthPnL: Number(thisMonthPnL.toFixed(2)),
       currentBalance: Number(currentBalance.toFixed(2)),
+      rawPositions: trades.reduce((s, t) => s + t.positionsCount, 0),
     });
   } catch (error: any) {
     res.status(500).json({ message: 'Error calculating summary stats', error: error.message });
@@ -165,8 +157,7 @@ export const getSummaryStats = async (req: Request, res: Response) => {
 export const getEquityCurve = async (req: Request, res: Response) => {
   try {
     const initialBalance = await getInitialBalance();
-    const accountNumber = await getActiveAccountNumber();
-    const trades = await Trade.find({ accountNumber }).sort({ closeTime: 1 }).select('closeTime openTime netProfit symbol mt5DealId');
+    const trades = await unitsFor(req);
 
     let currentBalance = initialBalance;
     const curve = trades.map((trade, index) => {
@@ -177,15 +168,23 @@ export const getEquityCurve = async (req: Request, res: Response) => {
         symbol: trade.symbol,
         netProfit: trade.netProfit,
         equity: currentBalance,
+        positionsCount: trade.positionsCount,
       };
     });
+
+    // Deposits / withdrawals: with these the client can rebuild the real
+    // account balance at the start and end of any time range.
+    const accountNumber = await getActiveAccountNumber();
+    const ops = await BalanceOperation.find({ accountNumber }).sort({ time: 1 }).lean();
 
     res.json({
       initialBalance,
       curve: [
         { tradeIndex: 0, date: trades[0]?.openTime || new Date(Date.now() - 86400000 * 30), symbol: 'START', netProfit: 0, equity: initialBalance },
-        ...curve
-      ]
+        ...curve,
+      ],
+      hasBalanceHistory: ops.length > 0,
+      balanceOps: ops.map((o) => ({ time: o.time, amount: o.amount, comment: o.comment })),
     });
   } catch (error: any) {
     res.status(500).json({ message: 'Error calculating equity curve', error: error.message });
@@ -195,21 +194,11 @@ export const getEquityCurve = async (req: Request, res: Response) => {
 // GET /api/stats/calendar
 export const getCalendarStats = async (req: Request, res: Response) => {
   try {
-    const accountNumber = await getActiveAccountNumber();
-    const calendar = await Trade.aggregate([
-      { $match: { accountNumber } },
-      {
-        $group: {
-          _id: { $dateToString: { format: '%Y-%m-%d', date: '$closeTime' } },
-          netProfit: { $sum: '$netProfit' },
-          tradeCount: { $sum: 1 },
-          winCount: { $sum: { $cond: [{ $gt: ['$netProfit', 0] }, 1, 0] } },
-          lossCount: { $sum: { $cond: [{ $lt: ['$netProfit', 0] }, 1, 0] } },
-        }
-      },
-      { $sort: { _id: 1 } }
-    ]);
-    
+    const trades = await unitsFor(req);
+    const map = bucketize(trades, (u) => dayKey(u.closeTime));
+    const calendar = Array.from(map.entries())
+      .map(([day, b]) => ({ _id: day, netProfit: b.netProfit, tradeCount: b.totalTrades, winCount: b.winCount, lossCount: b.lossCount }))
+      .sort((a, b) => (a._id < b._id ? -1 : 1));
     res.json(calendar);
   } catch (error: any) {
     res.status(500).json({ message: 'Error calculating calendar stats', error: error.message });
@@ -219,38 +208,18 @@ export const getCalendarStats = async (req: Request, res: Response) => {
 // GET /api/stats/by-symbol
 export const getStatsBySymbol = async (req: Request, res: Response) => {
   try {
-    const accountNumber = await getActiveAccountNumber();
-    const stats = await Trade.aggregate([
-      { $match: { accountNumber } },
-      {
-        $group: {
-          _id: '$symbol',
-          totalTrades: { $sum: 1 },
-          netProfit: { $sum: '$netProfit' },
-          winCount: { $sum: { $cond: [{ $gt: ['$netProfit', 0] }, 1, 0] } },
-          lossCount: { $sum: { $cond: [{ $lt: ['$netProfit', 0] }, 1, 0] } },
-          totalVolume: { $sum: '$volume' },
-        }
-      },
-      {
-        $project: {
-          symbol: '$_id',
-          totalTrades: 1,
-          netProfit: 1,
-          winRate: {
-            $cond: [
-              { $gt: ['$totalTrades', 0] },
-              { $multiply: [{ $divide: ['$winCount', '$totalTrades'] }, 100] },
-              0
-            ]
-          },
-          averageProfit: { $divide: ['$netProfit', '$totalTrades'] },
-          totalVolume: 1,
-        }
-      },
-      { $sort: { netProfit: -1 } }
-    ]);
-
+    const trades = await unitsFor(req);
+    const stats = Array.from(bucketize(trades, (u) => u.symbol).entries())
+      .map(([symbol, b]) => ({
+        _id: symbol,
+        symbol,
+        totalTrades: b.totalTrades,
+        netProfit: b.netProfit,
+        winRate: winRateOf(b),
+        averageProfit: b.netProfit / b.totalTrades,
+        totalVolume: b.totalVolume,
+      }))
+      .sort((a, b) => b.netProfit - a.netProfit);
     res.json(stats);
   } catch (error: any) {
     res.status(500).json({ message: 'Error calculating stats by symbol', error: error.message });
@@ -260,34 +229,10 @@ export const getStatsBySymbol = async (req: Request, res: Response) => {
 // GET /api/stats/by-session
 export const getStatsBySession = async (req: Request, res: Response) => {
   try {
-    const accountNumber = await getActiveAccountNumber();
-    const stats = await Trade.aggregate([
-      { $match: { accountNumber } },
-      {
-        $group: {
-          _id: '$session',
-          totalTrades: { $sum: 1 },
-          netProfit: { $sum: '$netProfit' },
-          winCount: { $sum: { $cond: [{ $gt: ['$netProfit', 0] }, 1, 0] } },
-        }
-      },
-      {
-        $project: {
-          session: '$_id',
-          totalTrades: 1,
-          netProfit: 1,
-          winRate: {
-            $cond: [
-              { $gt: ['$totalTrades', 0] },
-              { $multiply: [{ $divide: ['$winCount', '$totalTrades'] }, 100] },
-              0
-            ]
-          }
-        }
-      },
-      { $sort: { netProfit: -1 } }
-    ]);
-
+    const trades = await unitsFor(req);
+    const stats = Array.from(bucketize(trades, (u) => u.session || 'Other').entries())
+      .map(([session, b]) => ({ _id: session, session, totalTrades: b.totalTrades, netProfit: b.netProfit, winRate: winRateOf(b) }))
+      .sort((a, b) => b.netProfit - a.netProfit);
     res.json(stats);
   } catch (error: any) {
     res.status(500).json({ message: 'Error calculating stats by session', error: error.message });
@@ -297,43 +242,17 @@ export const getStatsBySession = async (req: Request, res: Response) => {
 // GET /api/stats/by-strategy
 export const getStatsByStrategy = async (req: Request, res: Response) => {
   try {
-    const accountNumber = await getActiveAccountNumber();
-    const stats = await Trade.aggregate([
-      { $match: { accountNumber } },
-      {
-        $group: {
-          _id: '$strategy',
-          totalTrades: { $sum: 1 },
-          netProfit: { $sum: '$netProfit' },
-          winCount: { $sum: { $cond: [{ $gt: ['$netProfit', 0] }, 1, 0] } },
-          totalRR: { $sum: { $ifNull: ['$rr', 0] } },
-          rrCount: { $sum: { $cond: [{ $gt: [{ $ifNull: ['$rr', 0] }, 0] }, 1, 0] } },
-        }
-      },
-      {
-        $project: {
-          strategy: '$_id',
-          totalTrades: 1,
-          netProfit: 1,
-          winRate: {
-            $cond: [
-              { $gt: ['$totalTrades', 0] },
-              { $multiply: [{ $divide: ['$winCount', '$totalTrades'] }, 100] },
-              0
-            ]
-          },
-          avgRR: {
-            $cond: [
-              { $gt: ['$rrCount', 0] },
-              { $divide: ['$totalRR', '$rrCount'] },
-              0
-            ]
-          }
-        }
-      },
-      { $sort: { netProfit: -1 } }
-    ]);
-
+    const trades = await unitsFor(req);
+    const stats = Array.from(bucketize(trades, (u) => u.strategy || 'Unassigned').entries())
+      .map(([strategy, b]) => ({
+        _id: strategy,
+        strategy,
+        totalTrades: b.totalTrades,
+        netProfit: b.netProfit,
+        winRate: winRateOf(b),
+        avgRR: b.rrCount > 0 ? b.totalRR / b.rrCount : 0,
+      }))
+      .sort((a, b) => b.netProfit - a.netProfit);
     res.json(stats);
   } catch (error: any) {
     res.status(500).json({ message: 'Error calculating stats by strategy', error: error.message });
@@ -343,40 +262,10 @@ export const getStatsByStrategy = async (req: Request, res: Response) => {
 // GET /api/stats/by-hour
 export const getStatsByHour = async (req: Request, res: Response) => {
   try {
-    const accountNumber = await getActiveAccountNumber();
-    const stats = await Trade.aggregate([
-      { $match: { accountNumber } },
-      {
-        $project: {
-          hour: { $hour: '$closeTime' },
-          netProfit: 1,
-        }
-      },
-      {
-        $group: {
-          _id: '$hour',
-          totalTrades: { $sum: 1 },
-          netProfit: { $sum: '$netProfit' },
-          winCount: { $sum: { $cond: [{ $gt: ['$netProfit', 0] }, 1, 0] } },
-        }
-      },
-      {
-        $project: {
-          hour: '$_id',
-          totalTrades: 1,
-          netProfit: 1,
-          winRate: {
-            $cond: [
-              { $gt: ['$totalTrades', 0] },
-              { $multiply: [{ $divide: ['$winCount', '$totalTrades'] }, 100] },
-              0
-            ]
-          }
-        }
-      },
-      { $sort: { hour: 1 } }
-    ]);
-
+    const trades = await unitsFor(req);
+    const stats = Array.from(bucketize(trades, (u) => new Date(u.closeTime).getUTCHours()).entries())
+      .map(([hour, b]) => ({ _id: hour, hour, totalTrades: b.totalTrades, netProfit: b.netProfit, winRate: winRateOf(b) }))
+      .sort((a, b) => (a.hour as number) - (b.hour as number));
     res.json(stats);
   } catch (error: any) {
     res.status(500).json({ message: 'Error calculating stats by hour', error: error.message });
@@ -387,24 +276,20 @@ export const getStatsByHour = async (req: Request, res: Response) => {
 export const getDrawdownStats = async (req: Request, res: Response) => {
   try {
     const initialBalance = await getInitialBalance();
-    const accountNumber = await getActiveAccountNumber();
-    const trades = await Trade.find({ accountNumber }).sort({ closeTime: 1 }).select('closeTime netProfit');
+    const trades = await unitsFor(req);
 
     let currentBalance = initialBalance;
     let peak = initialBalance;
     const drawdowns = trades.map((trade) => {
       currentBalance += trade.netProfit;
-      if (currentBalance > peak) {
-        peak = currentBalance;
-      }
+      if (currentBalance > peak) peak = currentBalance;
       const drawdownAmount = peak - currentBalance;
-      const drawdownPercent = peak > 0 ? (drawdownAmount / peak) * 100 : 0;
       return {
         date: trade.closeTime,
         balance: currentBalance,
-        peak: peak,
+        peak,
         drawdownAmount,
-        drawdownPercent,
+        drawdownPercent: peak > 0 ? (drawdownAmount / peak) * 100 : 0,
       };
     });
 

@@ -10,6 +10,11 @@ import {
   StrategyStat,
   HourStat,
   DrawdownPoint,
+  MT5Account,
+  SystemHealth,
+  GroupedTrade,
+  CandleResponse,
+  BalanceOp,
 } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -36,7 +41,9 @@ export const api = {
     limit?: number;
     sortBy?: string;
     sortOrder?: 'asc' | 'desc';
-  } = {}): Promise<{ trades: Trade[]; pagination: { total: number; page: number; limit: number; pages: number } }> => {
+    /** false = one row per MT5 position instead of smart-grouped trades */
+    grouped?: boolean;
+  } = {}): Promise<{ trades: GroupedTrade[]; pagination: { total: number; page: number; limit: number; pages: number; rawPositions?: number } }> => {
     const url = new URL(`${API_BASE_URL}/trades`);
     Object.entries(params).forEach(([key, val]) => {
       if (val !== undefined && val !== null && val !== '') {
@@ -52,7 +59,20 @@ export const api = {
     return handleResponse(res);
   },
 
-  updateTrade: async (id: string, data: Partial<Trade>): Promise<Trade> => {
+  /** The smart-grouped trade containing this deal */
+  getTradeGroup: async (id: string): Promise<GroupedTrade> => {
+    const res = await fetch(`${API_BASE_URL}/trades/${id}/group`);
+    return handleResponse(res);
+  },
+
+  /** OHLC candles around the (grouped) trade, from MT5 or the Mongo cache */
+  getTradeCandles: async (id: string, timeframe: string = 'auto'): Promise<CandleResponse> => {
+    const res = await fetch(`${API_BASE_URL}/trades/${id}/candles?tf=${encodeURIComponent(timeframe)}`);
+    return handleResponse(res);
+  },
+
+  /** applyTo: other deal ids of a grouped trade that should receive the same journal entry */
+  updateTrade: async (id: string, data: Partial<Trade> & { applyTo?: string[] }): Promise<Trade> => {
     const res = await fetch(`${API_BASE_URL}/trades/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -61,8 +81,10 @@ export const api = {
     return handleResponse(res);
   },
 
-  deleteTrade: async (id: string): Promise<{ message: string; id: string }> => {
-    const res = await fetch(`${API_BASE_URL}/trades/${id}`, {
+  /** otherIds: remaining deal ids of a grouped trade to delete together */
+  deleteTrade: async (id: string, otherIds: string[] = []): Promise<{ message: string; id: string; deleted: number }> => {
+    const qs = otherIds.length ? `?ids=${otherIds.map(encodeURIComponent).join(',')}` : '';
+    const res = await fetch(`${API_BASE_URL}/trades/${id}${qs}`, {
       method: 'DELETE',
     });
     return handleResponse(res);
@@ -106,6 +128,20 @@ export const api = {
     return handleResponse(res);
   },
 
+  updateAccount: async (id: string, data: Partial<MT5Account> & { password?: string }): Promise<MT5Account> => {
+    const res = await fetch(`${API_BASE_URL}/accounts/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    return handleResponse(res);
+  },
+
+  getHealth: async (): Promise<SystemHealth> => {
+    const res = await fetch(`${API_BASE_URL}/sync/health`);
+    return handleResponse(res);
+  },
+
   deleteAccount: async (id: string): Promise<any> => {
     const res = await fetch(`${API_BASE_URL}/accounts/${id}`, {
       method: 'DELETE',
@@ -119,7 +155,13 @@ export const api = {
     return handleResponse(res);
   },
 
-  getEquityCurve: async (): Promise<{ initialBalance: number; curve: EquityCurvePoint[] }> => {
+  getEquityCurve: async (): Promise<{
+    initialBalance: number;
+    curve: EquityCurvePoint[];
+    /** true when MT5 deposit/withdrawal history is synced, so real balances can be rebuilt */
+    hasBalanceHistory?: boolean;
+    balanceOps?: BalanceOp[];
+  }> => {
     const res = await fetch(`${API_BASE_URL}/stats/equity-curve`);
     return handleResponse(res);
   },

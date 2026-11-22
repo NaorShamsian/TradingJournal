@@ -16,16 +16,38 @@ import {
   Settings as SlidersIcon
 } from 'lucide-react';
 import api from '../services/api';
-import { Trade, Settings } from '../types';
+import { Trade, Settings, GroupedTrade } from '../types';
 import { formatCurrency, formatDateTime, formatDuration, calculateTradeRR, formatRR } from '../utils/format';
 import { useThemeLang } from '../context/ThemeLangContext';
+import TradeChart from '../components/TradeChart';
+import { OutcomeBadge, pnlText } from '../components/Outcome';
+
+// After saving, the API returns the single lead deal; keep the group's totals.
+const pickGroupTotals = (g: GroupedTrade): Partial<GroupedTrade> => ({
+  _id: g._id,
+  volume: g.volume,
+  openTime: g.openTime,
+  closeTime: g.closeTime,
+  entryPrice: g.entryPrice,
+  exitPrice: g.exitPrice,
+  profit: g.profit,
+  commission: g.commission,
+  swap: g.swap,
+  netProfit: g.netProfit,
+  durationMinutes: g.durationMinutes,
+  isGrouped: g.isGrouped,
+  positionsCount: g.positionsCount,
+  exitsCount: g.exitsCount,
+  memberIds: g.memberIds,
+  rawExits: g.rawExits,
+});
 
 export const TradeDetails: React.FC = () => {
   const { t, lang } = useThemeLang();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  const [trade, setTrade] = useState<Trade | null>(null);
+  const [trade, setTrade] = useState<GroupedTrade | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -73,8 +95,9 @@ export const TradeDetails: React.FC = () => {
         setLoading(true);
         setError(null);
 
+        // Load the whole smart-grouped trade this deal belongs to
         const [tradeRes, settingsRes] = await Promise.all([
-          api.getTradeById(id),
+          api.getTradeGroup(id),
           api.getSettings(),
         ]);
 
@@ -97,16 +120,7 @@ export const TradeDetails: React.FC = () => {
         setScreenshotBeforeScale((tradeRes as any).screenshotBeforeScale || 100);
         setScreenshotAfterScale((tradeRes as any).screenshotAfterScale || 100);
 
-        // Smart aggregation check (fetch exits sharing the same position ID)
-        if (tradeRes.positionId) {
-          try {
-            const relRes = await api.getTrades({ symbol: tradeRes.symbol, limit: 100 });
-            const filtered = relRes.trades.filter((t: Trade) => t.positionId === tradeRes.positionId);
-            setRelatedExits(filtered);
-          } catch (e) {
-            console.error('Error fetching related exits:', e);
-          }
-        }
+        setRelatedExits(tradeRes.rawExits || [tradeRes]);
       } catch (err: any) {
         console.error(err);
         setError(err.message || 'Error loading trade details.');
@@ -166,8 +180,10 @@ export const TradeDetails: React.FC = () => {
         screenshotAfterUrl,
         screenshotBeforeScale,
         screenshotAfterScale,
+        // Apply the journal entry to every deal of a grouped trade
+        applyTo: trade?.memberIds || [],
       } as any);
-      setTrade(updated);
+      setTrade((prev) => (prev ? { ...prev, ...updated, ...pickGroupTotals(prev) } : prev));
       alert(lang === 'he' ? 'פרטי העסקה נשמרו בהצלחה!' : 'Journal entry saved successfully!');
     } catch (err: any) {
       alert(`Save failed: ${err.message}`);
@@ -178,9 +194,15 @@ export const TradeDetails: React.FC = () => {
 
   const handleDelete = async () => {
     if (!id) return;
-    if (!window.confirm(lang === 'he' ? 'האם אתה בטוח שברצונך למחוק עסקה זו?' : 'Are you sure you want to delete this trade?')) return;
+    const others = (trade?.memberIds || []).filter((m) => m !== id);
+    const msg = others.length
+      ? (lang === 'he'
+          ? `למחוק את העסקה המאוחדת כולה (${others.length + 1} עסקאות ב-MT5)?`
+          : `Delete the whole merged trade (${others.length + 1} MT5 deals)?`)
+      : (lang === 'he' ? 'האם אתה בטוח שברצונך למחוק עסקה זו?' : 'Are you sure you want to delete this trade?');
+    if (!window.confirm(msg)) return;
     try {
-      await api.deleteTrade(id);
+      await api.deleteTrade(id, others);
       navigate('/trades');
     } catch (err: any) {
       alert(`Delete failed: ${err.message}`);
@@ -285,12 +307,18 @@ export const TradeDetails: React.FC = () => {
               {trade.type}
             </span>
             <span className="text-sm text-slate-600 dark:text-slate-350 font-mono font-bold">{trade.volume.toFixed(2)} Lots</span>
+            <OutcomeBadge netProfit={trade.netProfit} lang={lang} />
+            {trade.isGrouped && (
+              <span className="px-2 py-0.5 rounded-lg text-[11px] font-black bg-primary/10 border border-primary/30 text-primary">
+                {lang === 'he' ? `מאוחד · ${trade.positionsCount} פוזיציות` : `Merged · ${trade.positionsCount} positions`}
+              </span>
+            )}
           </div>
-          
+
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs text-slate-550 dark:text-slate-400">
             <span className="flex items-center gap-1 font-semibold">
               <Calendar className="h-3.5 w-3.5" />
-              {formatDateTime(trade.closeTime)}
+              {formatDateTime(trade.openTime)} → {formatDateTime(trade.closeTime)}
             </span>
             <span>•</span>
             <span className="flex items-center gap-1 font-semibold">
@@ -318,12 +346,18 @@ export const TradeDetails: React.FC = () => {
           <div className="flex items-center justify-between border-b border-slate-200 dark:border-border/30 pb-2.5">
             <h3 className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
               <TrendingUp className="h-4.5 w-4.5 text-primary" />
-              {lang === 'he' ? 'איחוד פוזיציה חכם (Smart Position Grouping)' : 'Smart Position Aggregation'}
+              {lang === 'he' ? 'עסקה מאוחדת' : 'Merged trade'}
             </h3>
             <span className="text-xs font-bold text-primary bg-primary/10 border border-primary/20 px-2.5 py-0.5 rounded-full">
-              {relatedExits.length} {lang === 'he' ? 'יציאות חלקיות' : 'Exits'}
+              {trade.positionsCount} {lang === 'he' ? 'פוזיציות' : 'positions'} · {relatedExits.length} {lang === 'he' ? 'סגירות' : 'exits'}
             </span>
           </div>
+
+          <p className="text-xs text-slate-500 dark:text-slate-400 font-semibold leading-relaxed">
+            {lang === 'he'
+              ? `המערכת זיהתה ${trade.positionsCount} פוזיציות ${trade.type} על ${trade.symbol} שנפתחו בזמן שפוזיציה קודמת עדיין הייתה פתוחה (או תוך דקות ספורות אחריה), ואיחדה אותן לעסקה אחת. הרווח, הנפח והמחירים הם הסכום והממוצע המשוקלל של כולן. אפשר לשנות את חלון האיחוד או לכבות אותו בהגדרות.`
+              : `${trade.positionsCount} ${trade.type} positions on ${trade.symbol} were opened while a previous one was still running (or within minutes of it), so they were merged into one trade. P&L and volume are summed and prices are volume-weighted. You can change the merge window or turn it off in Settings.`}
+          </p>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-bold text-slate-500">
             <div className="p-3 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-border/40">
@@ -346,49 +380,43 @@ export const TradeDetails: React.FC = () => {
 
           {/* Partial close exit timeline */}
           <div className="space-y-2.5 pt-1">
-            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">{lang === 'he' ? 'פירוט סגירות חלקיות' : 'Exits Timeline Breakdown'}</span>
-            <div className="space-y-2 max-h-44 overflow-y-auto pr-1">
-              {relatedExits.map((exit, index) => {
-                const isCurrent = exit._id === id;
-                return (
-                  <div 
-                    key={exit._id} 
-                    className={`p-3 rounded-xl border flex items-center justify-between text-xs transition duration-200 ${
-                      isCurrent 
-                        ? 'bg-primary/5 border-primary shadow-sm' 
-                        : 'bg-slate-50/50 dark:bg-slate-900/40 border-slate-200 dark:border-border/40 hover:border-slate-300 dark:hover:border-slate-700'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="h-5 w-5 rounded-full bg-slate-200 dark:bg-slate-800 text-[10px] font-black flex items-center justify-center text-slate-600 dark:text-slate-400">
-                        {index + 1}
-                      </div>
-                      <div>
-                        <span className="font-extrabold text-slate-800 dark:text-white">{exit.volume.toFixed(2)} Lot close</span>
-                        <span className="text-[10px] text-slate-400 ml-2 mr-2">at {exit.exitPrice.toFixed(5)}</span>
-                      </div>
+            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">{lang === 'he' ? 'הפוזיציות שאוחדו' : 'Merged positions'}</span>
+            <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+              {relatedExits.map((exit, index) => (
+                <div
+                  key={exit._id}
+                  className={`p-3 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs ${
+                    exit.netProfit > 0
+                      ? 'bg-emerald-50/60 dark:bg-emerald-500/[0.05] border-emerald-200 dark:border-emerald-500/25'
+                      : exit.netProfit < 0
+                        ? 'bg-rose-50/60 dark:bg-rose-500/[0.05] border-rose-200 dark:border-rose-500/25'
+                        : 'bg-slate-50/50 dark:bg-slate-900/40 border-slate-200 dark:border-border/40'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="h-5 w-5 rounded-full bg-slate-200 dark:bg-slate-800 text-[10px] font-black flex items-center justify-center text-slate-600 dark:text-slate-400 flex-shrink-0">
+                      {index + 1}
                     </div>
-
-                    <div className="flex items-center gap-3 font-bold">
-                      <span className={exit.netProfit >= 0 ? 'text-emerald-500' : 'text-rose-500'}>
-                        {exit.netProfit >= 0 ? '+' : ''}{formatCurrency(exit.netProfit, currency)}
-                      </span>
-                      {!isCurrent && (
-                        <Link 
-                          to={`/trades/${exit._id}`}
-                          className="px-2.5 py-1 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-300 rounded-lg text-[10px] transition"
-                        >
-                          {lang === 'he' ? 'צפה' : 'Inspect'}
-                        </Link>
-                      )}
+                    <div className="font-semibold text-slate-600 dark:text-slate-300">
+                      <span className="font-extrabold text-slate-800 dark:text-white">{exit.volume.toFixed(2)} lot</span>
+                      <span className="mx-1.5 text-slate-400">·</span>
+                      <span className="font-mono">{formatDateTime(exit.openTime)} @ {exit.entryPrice}</span>
+                      <span className="mx-1.5 text-slate-400">→</span>
+                      <span className="font-mono">{formatDateTime(exit.closeTime)} @ {exit.exitPrice}</span>
                     </div>
                   </div>
-                );
-              })}
+                  <span className={`font-black ${pnlText(exit.netProfit)}`}>
+                    {exit.netProfit >= 0 ? '+' : ''}{formatCurrency(exit.netProfit, currency)}
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
         </div>
       )}
+
+      {/* Candlestick replay with entry / exit arrows */}
+      <TradeChart trade={trade} currency={currency} />
 
       {/* Grid: Left Column MT5 Execution details, Right Column Journal Input Form */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

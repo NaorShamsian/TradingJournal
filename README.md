@@ -2,6 +2,8 @@
 
 A premium, modern, and high-fidelity personal trading journal and analytics dashboard designed specifically for day traders executing on **MetaTrader 5 (MT5)**. Inspired by leading analytics platforms like TradeZella, TradesViz, and TraderSync, this local application automatically synchronizes closed trades/deals, compiles them into structured positions in MongoDB, and presents real-time analytics in a fully responsive, SaaS-style React client.
 
+> 📖 **User guide (Hebrew):** open [`docs/user-guide.html`](docs/user-guide.html) in your browser for step-by-step setup, connecting an MT5 account, a tour of every page and troubleshooting.
+
 ---
 
 ## 🏗️ Architecture & System Design
@@ -126,7 +128,7 @@ The project is built entirely on modern, type-safe languages and scalable librar
     ```
 3. Copy `.env.example` to create `.env`:
     ```bash
-    cp .env.example .env
+    copy .env.example .env   # Windows (macOS/Linux: cp)
     ```
 4. Edit the new `.env` and fill in your MongoDB connection details:
     ```env
@@ -157,7 +159,7 @@ The project is built entirely on modern, type-safe languages and scalable librar
     ```
 3. Copy `.env.example` to create `.env`:
     ```bash
-    cp .env.example .env
+    copy .env.example .env   # Windows (macOS/Linux: cp)
     ```
 4. Verify the backend connection URL in `.env`:
     ```env
@@ -186,25 +188,25 @@ The project is built entirely on modern, type-safe languages and scalable librar
     SYNC_INTERVAL_SECONDS=60
     ```
 4. Ensure your MetaTrader 5 Terminal is open and running.
-5. **Start Auto-Sync daemon (Recommended):**
-    ```bash
-    python mt5_sync_worker.py
-    ```
-6. **(Alternative) One-Time Sync:** Runs a single query, imports data, and exits:
-    ```bash
-    python mt5_sync_once.py
-    ```
+5. **That's it — the backend runs the sync itself.** When you add an account, its full trade history is imported immediately; after that the backend syncs every `SYNC_INTERVAL_SECONDS` (set in `backend/.env`, `0` disables it). Trades are stored in MongoDB, so history stays available even when MT5 is closed.
+6. **(Optional) Manual runs:** a single sync pass (`python mt5_sync_once.py`), or a standalone loop (`python mt5_sync_worker.py`) if the sync runs on a different machine than the backend.
 
 ---
 
 ## ⚙️ Advanced Workflows
 
-### Position Aggregation Logic
-MetaTrader 5 tracks independent entry and exit deals. This platform automatically groups multiple executions under the same `positionId` (using `groupTradesByPosition`).
-*   The first deal marks the starting point, session, and type.
-*   Subsequent partial exits are aggregated.
-*   The final close time corresponds to the last exit deal.
-*   Net profit, volume, and commissions are summed, and the entry/exit prices are dynamically weighted.
+### Smart Trade Grouping
+MetaTrader 5 records every partial close and every scaled-in position as a separate deal. The backend (`backend/src/utils/tradeGrouping.ts`) merges them into trades:
+*   Exits that belong to the same MT5 position are always one trade.
+*   Positions on the same symbol and direction that open while the previous one is still running, or within `mergeWindowMinutes` (default 5) after it closed, join that trade.
+*   Net profit, volume and commissions are summed; entry/exit prices are volume-weighted. Lists, statistics and the calendar all use the merged trades.
+*   Merging can be turned off or tuned in **Settings**; the Trades Log can always show each position separately.
+
+### Real Balances per Time Range
+The sync stores MT5 deposits and withdrawals, so the dashboard rebuilds the actual account balance at the start and end of any selected range. The break-even line defaults to the range's opening balance and can be overridden.
+
+### Trade Replay Charts
+Each trade page shows MT5 candles before, during and after the trade with entry/exit arrows (`sync/mt5_candles.py`). Candles are cached in MongoDB, so charts keep working when MT5 is closed.
 
 ### Risk Management & Stop Loss Tracking
 During synchronization, the worker references entry order ticket details in MT5 to pull Stop Loss (SL) and Take Profit (TP) points. It then calculates the Risk Gain ratio ($R$) based on the trader's starting capital and risk percentage parameters configured in the settings.

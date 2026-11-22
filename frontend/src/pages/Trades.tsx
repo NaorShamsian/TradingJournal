@@ -14,13 +14,16 @@ import {
   Image as ImageIcon
 } from 'lucide-react';
 import api from '../services/api';
-import { Trade, Settings } from '../types';
-import { formatCurrency, formatDate, formatTime, calculateTradeRR, formatRR, groupTradesByPosition } from '../utils/format';
+import { GroupedTrade, Settings } from '../types';
+import { formatCurrency, formatDate, formatTime, calculateTradeRR, formatRR } from '../utils/format';
 import { useThemeLang } from '../context/ThemeLangContext';
+import { OutcomeBadge, MergedBadge, outcomeSurface, outcomeAccent, pnlText } from '../components/Outcome';
 
 export const Trades: React.FC = () => {
   const { t, lang } = useThemeLang();
-  const [trades, setTrades] = useState<Trade[]>([]);
+  const [trades, setTrades] = useState<GroupedTrade[]>([]);
+  const [grouped, setGrouped] = useState(true);
+  const [rawPositions, setRawPositions] = useState<number | undefined>(undefined);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -64,6 +67,7 @@ export const Trades: React.FC = () => {
           limit,
           sortBy,
           sortOrder,
+          grouped,
         }),
         api.getSettings(),
       ]);
@@ -71,6 +75,7 @@ export const Trades: React.FC = () => {
       setTrades(tradesRes.trades);
       setTotalPages(tradesRes.pagination.pages);
       setTotalCount(tradesRes.pagination.total);
+      setRawPositions(tradesRes.pagination.rawPositions);
       setSettings(settingsRes);
     } catch (err: any) {
       console.error(err);
@@ -82,7 +87,7 @@ export const Trades: React.FC = () => {
 
   useEffect(() => {
     fetchTradesAndSettings();
-  }, [currentPage, symbol, strategy, session, outcome, startDate, endDate, sortBy, sortOrder]);
+  }, [currentPage, symbol, strategy, session, outcome, startDate, endDate, sortBy, sortOrder, grouped]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,13 +108,19 @@ export const Trades: React.FC = () => {
     setCurrentPage(1);
   };
 
-  const handleDeleteTrade = async (id: string) => {
-    if (!window.confirm(t('confirmDelete'))) {
+  const handleDeleteTrade = async (trade: GroupedTrade) => {
+    const others = (trade.memberIds || []).filter((m) => m !== trade._id);
+    const msg = others.length
+      ? (lang === 'he'
+          ? `למחוק את העסקה המאוחדת כולה (${others.length + 1} עסקאות ב-MT5)?`
+          : `Delete the whole merged trade (${others.length + 1} MT5 deals)?`)
+      : t('confirmDelete');
+    if (!window.confirm(msg)) {
       return;
     }
     try {
-      await api.deleteTrade(id);
-      setTrades(trades.filter(t => t._id !== id));
+      await api.deleteTrade(trade._id, others);
+      setTrades(trades.filter(x => x._id !== trade._id));
       setTotalCount(prev => prev - 1);
     } catch (err: any) {
       alert(`Delete failed: ${err.message}`);
@@ -120,19 +131,43 @@ export const Trades: React.FC = () => {
   const startingBalance = settings?.defaultBalance || 25000;
   const riskPercent = settings?.riskPerTradePercent || 1.0;
 
-  // Position aggregation helper on trades list
-  const groupedTradesList = groupTradesByPosition(trades);
+  // Trades arrive already smart-grouped from the API
+  const groupedTradesList = trades;
 
   return (
     <div className="space-y-6 animate-fade-in text-slate-800 dark:text-slate-100">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 dark:text-white">{t('tradesLog')}</h1>
-        <p className="text-slate-500 dark:text-slate-400 text-xs md:text-sm mt-1">
-          {lang === 'he' 
-            ? 'סנן, נתח והוסף הערות לעסקאות ה-MT5 שלך.' 
-            : 'Review, filter, and journal your closed executions.'}
-        </p>
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 dark:text-white">{t('tradesLog')}</h1>
+          <p className="text-slate-500 dark:text-slate-400 text-xs md:text-sm mt-1">
+            {lang === 'he'
+              ? 'סנן, נתח והוסף הערות לעסקאות ה-MT5 שלך.'
+              : 'Review, filter, and journal your closed executions.'}
+          </p>
+          {grouped && rawPositions !== undefined && rawPositions > totalCount && (
+            <p className="text-[11px] text-primary font-bold mt-1">
+              {lang === 'he'
+                ? `${totalCount} עסקאות (אוחדו מתוך ${rawPositions} פוזיציות ב-MT5)`
+                : `${totalCount} trades (merged from ${rawPositions} MT5 positions)`}
+            </p>
+          )}
+        </div>
+        {/* Merged / per-position view toggle */}
+        <div className="inline-flex p-1 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-border self-start md:self-auto">
+          {[true, false].map((g) => (
+            <button
+              key={String(g)}
+              type="button"
+              onClick={() => { setGrouped(g); setCurrentPage(1); }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                grouped === g ? 'bg-primary text-white shadow' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              {g ? (lang === 'he' ? 'עסקאות מאוחדות' : 'Merged trades') : (lang === 'he' ? 'כל פוזיציה בנפרד' : 'Each position')}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Filters Panel */}
@@ -275,17 +310,18 @@ export const Trades: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {groupedTradesList.map((trade) => {
                 const profitVal = trade.netProfit;
-                const isPositive = profitVal >= 0;
                 const calculatedRR = calculateTradeRR(profitVal, startingBalance, riskPercent);
                 
                 // Prioritize After screenshot, fallback to Before
                 const chartImage = trade.screenshotAfterUrl || trade.screenshotBeforeUrl;
 
                 return (
-                  <div 
+                  <div
                     key={trade._id}
-                    className="flex flex-col bg-white dark:bg-card border border-slate-200 dark:border-border rounded-2xl overflow-hidden hover:shadow-xl transition-all duration-300 group"
+                    className={`relative flex flex-col border rounded-2xl overflow-hidden hover:shadow-xl transition-all duration-300 group ${outcomeSurface(profitVal)}`}
                   >
+                    {/* Win / loss accent strip */}
+                    <div className={`absolute top-0 inset-x-0 h-1 z-10 ${outcomeAccent(profitVal)}`} />
                     {/* Visual Screenshot display if exists */}
                     {chartImage ? (
                       <div 
@@ -318,8 +354,8 @@ export const Trades: React.FC = () => {
                       
                       {/* Ticker & Close time header */}
                       <div>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1.5">
+                        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+                          <div className="flex flex-wrap items-center gap-1.5">
                             <span className="text-lg font-black text-slate-900 dark:text-white">{trade.symbol}</span>
                             <span className={`px-2 py-0.5 rounded-md text-[9px] font-black border ${
                               trade.type === 'BUY' 
@@ -328,19 +364,21 @@ export const Trades: React.FC = () => {
                             }`}>
                               {trade.type}
                             </span>
-                            {trade.isGrouped && (
-                              <span className="px-1.5 py-0.5 bg-primary/10 border border-primary/20 text-primary rounded-md text-[8px] font-black tracking-wider uppercase">
-                                {trade.exitsCount} Exits
-                              </span>
-                            )}
+                            <OutcomeBadge netProfit={profitVal} lang={lang} />
+                            <MergedBadge positions={trade.positionsCount} lang={lang} />
                           </div>
                           
-                          <span className="text-[10px] text-slate-400 font-bold uppercase">
+                          <span className="text-[10px] text-slate-400 font-bold uppercase whitespace-nowrap">
                             {formatDate(trade.closeTime)}
                           </span>
                         </div>
                         <div className="text-[10px] text-slate-455 font-bold mt-1">
-                          {formatTime(trade.closeTime)} • {trade.volume.toFixed(2)} Lots
+                          {formatTime(trade.openTime)}–{formatTime(trade.closeTime)} • {trade.volume.toFixed(2)} Lots
+                          {trade.isGrouped && (
+                            <span className="text-primary">
+                              {' '}• {lang === 'he' ? `${trade.positionsCount} פוזיציות אוחדו` : `${trade.positionsCount} positions merged`}
+                            </span>
+                          )}
                         </div>
                       </div>
 
@@ -360,13 +398,13 @@ export const Trades: React.FC = () => {
                       <div className="flex items-center justify-between border-t border-b border-slate-250/20 dark:border-border/30 py-3">
                         <div>
                           <span className="block text-[9px] text-slate-400 font-bold uppercase">{lang === 'he' ? 'רווח/הפסד נקי' : 'Net P&L'}</span>
-                          <span className={`text-xl font-black ${isPositive ? 'text-emerald-500' : 'text-rose-500'}`}>
+                          <span className={`text-xl font-black ${pnlText(profitVal)}`}>
                             {profitVal > 0 ? '+' : ''}{formatCurrency(profitVal, currency)}
                           </span>
                         </div>
                         <div className="text-right">
                           <span className="block text-[9px] text-slate-400 font-bold uppercase">{t('avgRR')}</span>
-                          <span className={`text-base font-black ${calculatedRR >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                          <span className={`text-base font-black ${pnlText(calculatedRR)}`}>
                             {formatRR(calculatedRR)}
                           </span>
                         </div>
@@ -404,10 +442,10 @@ export const Trades: React.FC = () => {
                           className="flex items-center gap-1 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-xl transition"
                         >
                           <Edit className="h-3.5 w-3.5" />
-                          {lang === 'he' ? 'ערוך' : 'Edit'}
+                          {lang === 'he' ? 'גרף ויומן' : 'Chart & journal'}
                         </Link>
                         <button
-                          onClick={() => handleDeleteTrade(trade._id)}
+                          onClick={() => handleDeleteTrade(trade)}
                           className="flex items-center gap-1 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-danger/10 hover:text-danger text-slate-400 text-xs font-bold rounded-xl transition"
                         >
                           <Trash2 className="h-3.5 w-3.5" />

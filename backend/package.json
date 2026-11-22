@@ -8,7 +8,8 @@
     "start": "node dist/server.js",
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "seed": "ts-node-dev src/utils/seed.ts",
-    "clear": "ts-node-dev src/utils/clear_db.ts"
+    "clear": "ts-node-dev src/utils/clear_db.ts",
+    "migrate": "ts-node-dev --transpile-only src/utils/migrate_local_to_atlas.ts"
   },
   "dependencies": {
     "cors": "^2.8.5",

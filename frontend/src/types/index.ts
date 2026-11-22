@@ -47,10 +47,31 @@ export interface SyncStatus {
   updatedAt: string;
 }
 
+/** A smart-grouped trade: one or more MT5 positions that form one trade idea. */
 export interface GroupedTrade extends Trade {
   isGrouped?: boolean;
+  /** Number of distinct MT5 positions merged into this trade */
+  positionsCount?: number;
+  /** Number of exit deals (partial closes included) */
   exitsCount?: number;
+  memberIds?: string[];
   rawExits?: Trade[];
+}
+
+export interface Candle {
+  time: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+}
+
+export interface CandleResponse {
+  symbol: string;
+  timeframe: string;
+  digits: number;
+  candles: Candle[];
+  cached: boolean;
 }
 
 export interface ISessionDefinition {
@@ -67,6 +88,48 @@ export interface Settings {
   strategies: string[];
   sessions: ISessionDefinition[];
   riskPerTradePercent: number;
+  balanceSource?: BalanceSource;
+  activeAccountId?: string;
+  /** Smart grouping of same-direction positions into one trade */
+  mergeTrades?: boolean;
+  mergeWindowMinutes?: number;
+}
+
+export type BalanceSource = 'manual' | 'mt5_first_deposit' | 'mt5_net_deposits';
+
+export interface MT5LiveInfo {
+  balance?: number;
+  equity?: number;
+  currency?: string;
+  leverage?: number;
+  firstDeposit?: number;
+  totalDeposits?: number;
+  totalWithdrawals?: number;
+  updatedAt?: string;
+}
+
+export interface MT5Account {
+  _id: string;
+  login: number;
+  server: string;
+  path?: string;
+  name?: string;
+  isActive: boolean;
+  defaultBalance: number;
+  riskPerTradePercent: number;
+  syncHistoryDepth: 'week' | 'month' | 'year' | 'all';
+  balanceSource: BalanceSource;
+  mt5Info?: MT5LiveInfo;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SystemHealth {
+  mongo: { connected: boolean; state: string; host?: string; database?: string };
+  totalTrades: number;
+  activeAccountTrades: number;
+  latestTradeCloseTime: string | null;
+  syncInProgress: boolean;
 }
 
 export interface StatsSummary {
@@ -95,6 +158,13 @@ export interface EquityCurvePoint {
   symbol: string;
   netProfit: number;
   equity: number;
+}
+
+/** Deposit / withdrawal from MT5 (positive = deposit) */
+export interface BalanceOp {
+  time: string;
+  amount: number;
+  comment?: string;
 }
 
 export interface CalendarDaySummary {

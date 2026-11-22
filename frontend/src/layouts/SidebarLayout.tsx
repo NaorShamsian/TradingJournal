@@ -12,7 +12,8 @@ import {
   Sun,
   Moon,
   Plus,
-  ChevronDown
+  ChevronDown,
+  Wallet
 } from 'lucide-react';
 import { useThemeLang } from '../context/ThemeLangContext';
 import { api } from '../services/api';
@@ -44,6 +45,7 @@ export const SidebarLayout: React.FC<SidebarLayoutProps> = ({ children }) => {
   const [defaultBalance, setDefaultBalance] = useState('25000');
   const [riskPercent, setRiskPercent] = useState('1.0');
   const [syncHistoryDepth, setSyncHistoryDepth] = useState('all');
+  const [creatingAccount, setCreatingAccount] = useState(false);
 
   const fetchGlobalData = async () => {
     try {
@@ -107,7 +109,9 @@ export const SidebarLayout: React.FC<SidebarLayoutProps> = ({ children }) => {
       alert(lang === 'he' ? 'נא למלא מספר חשבון ושרת' : 'Please fill in Login ID and Server.');
       return;
     }
+    setCreatingAccount(true);
     try {
+      // The backend verifies the MT5 login and imports the full trade history before responding
       await api.createAccount({
         login: Number(login),
         password,
@@ -130,6 +134,8 @@ export const SidebarLayout: React.FC<SidebarLayoutProps> = ({ children }) => {
       window.location.reload();
     } catch (err: any) {
       alert(lang === 'he' ? `שגיאה ביצירת חשבון: ${err.message}` : `Error creating account: ${err.message}`);
+    } finally {
+      setCreatingAccount(false);
     }
   };
 
@@ -139,6 +145,7 @@ export const SidebarLayout: React.FC<SidebarLayoutProps> = ({ children }) => {
     { name: t('calendar'), href: '/calendar', icon: Calendar },
     { name: t('analytics'), href: '/analytics', icon: LineChart },
     { name: t('syncCenter'), href: '/sync', icon: RefreshCw },
+    { name: t('account'), href: '/account', icon: Wallet },
     { name: t('settings'), href: '/settings', icon: SettingsIcon },
   ];
 
@@ -592,9 +599,13 @@ export const SidebarLayout: React.FC<SidebarLayoutProps> = ({ children }) => {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 bg-primary hover:bg-primary-dark text-white text-xs font-bold rounded-xl transition"
+                  disabled={creatingAccount}
+                  className="flex-1 py-2.5 bg-primary hover:bg-primary-dark disabled:opacity-60 text-white text-xs font-bold rounded-xl transition flex items-center justify-center gap-2"
                 >
-                  {lang === 'he' ? 'שמור חשבון' : 'Save Connection'}
+                  {creatingAccount && <RefreshCw className="h-3.5 w-3.5 animate-spin" />}
+                  {creatingAccount
+                    ? (lang === 'he' ? 'מתחבר ומייבא היסטוריה...' : 'Connecting & importing history...')
+                    : (lang === 'he' ? 'שמור חשבון' : 'Save Connection')}
                 </button>
               </div>
             </form>

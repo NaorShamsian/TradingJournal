@@ -208,7 +208,7 @@ export const Analytics: React.FC = () => {
                     contentStyle={{ background: tooltipBg, border: `1px solid ${tooltipBorder}`, borderRadius: '12px' }}
                     labelStyle={{ color: '#94a3b8', fontSize: '11px', fontWeight: 600 }}
                     itemStyle={{ color: tooltipText, fontSize: '12px' }}
-                    formatter={(value: any) => [formatPercent(Number(value) / 100), 'Win Rate']}
+                    formatter={(value: any) => [formatPercent(Number(value)), 'Win Rate']}
                   />
                   <Bar dataKey="winRate" fill="#7c3aed" radius={[4, 4, 0, 0]} />
                 </BarChart>
