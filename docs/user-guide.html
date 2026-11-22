@@ -8,140 +8,211 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik:wght@500;700;800&family=Assistant:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
 <style>
-/* Layout: single reading column, sticky section index on wide screens, RTL */
+/* Layout: RTL reading column with a sticky index on wide screens; one column + pill index on phones */
 :root {
   --bg: #f6f5fb;
   --surface: #ffffff;
   --fg: #1c1a2e;
-  --muted: #625e7a;
+  --muted: #5c5874;
   --line: #e3e0ef;
   --accent: #6d28d9;
   --accent-soft: #efe8ff;
-  --win: #059669;
+  --win: #047857;
   --win-soft: #e3f6ee;
-  --loss: #dc2626;
+  --loss: #c81e1e;
   --loss-soft: #fdeaea;
-  --warn: #b45309;
+  --warn: #9a4a06;
   --warn-soft: #fdf1e1;
   --code-bg: #f0eef7;
+  --buy: #2563eb;
+  --sell: #ea580c;
   --font-display: "Rubik", "Segoe UI", Arial, sans-serif;
   --font-body: "Assistant", "Segoe UI", Arial, sans-serif;
   --font-mono: "JetBrains Mono", Consolas, "Courier New", monospace;
+  --text: 18px;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #0b0a14; --surface: #13121f; --fg: #ebe9f5; --muted: #a29fba; --line: #262438;
-    --accent: #a78bfa; --accent-soft: #241b3d; --win: #34d399; --win-soft: #0f2a21;
-    --loss: #f87171; --loss-soft: #2e1416; --warn: #fbbf24; --warn-soft: #2b2110; --code-bg: #1b1a2b;
+    --bg: #0b0a14; --surface: #14131f; --fg: #ecebf5; --muted: #a9a6c0; --line: #2a283c;
+    --accent: #b197fc; --accent-soft: #261d40; --win: #34d399; --win-soft: #0f2a21;
+    --loss: #f87171; --loss-soft: #2e1416; --warn: #fbbf24; --warn-soft: #2b2110; --code-bg: #1c1b2c;
+    --buy: #60a5fa; --sell: #fb923c;
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --bg: #0b0a14; --surface: #13121f; --fg: #ebe9f5; --muted: #a29fba; --line: #262438;
-  --accent: #a78bfa; --accent-soft: #241b3d; --win: #34d399; --win-soft: #0f2a21;
-  --loss: #f87171; --loss-soft: #2e1416; --warn: #fbbf24; --warn-soft: #2b2110; --code-bg: #1b1a2b;
+  --bg: #0b0a14; --surface: #14131f; --fg: #ecebf5; --muted: #a9a6c0; --line: #2a283c;
+  --accent: #b197fc; --accent-soft: #261d40; --win: #34d399; --win-soft: #0f2a21;
+  --loss: #f87171; --loss-soft: #2e1416; --warn: #fbbf24; --warn-soft: #2b2110; --code-bg: #1c1b2c;
+  --buy: #60a5fa; --sell: #fb923c;
   color-scheme: dark;
 }
+@media (max-width: 600px) { :root { --text: 17px; } }
+
 * { box-sizing: border-box; }
-body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 17px; line-height: 1.7; }
+body {
+  background: var(--bg); color: var(--fg);
+  font-family: var(--font-body); font-size: var(--text); line-height: 1.8;
+  -webkit-text-size-adjust: 100%;
+  overflow-wrap: break-word;
+}
 .page {
-  max-width: 1120px; margin: 0 auto;
+  max-width: 1140px; margin: 0 auto;
   padding-block: 40px 80px;
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
-  display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 48px;
+  display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 56px;
 }
-@media (max-width: 860px) { .page { grid-template-columns: minmax(0, 1fr); gap: 24px; } }
+/* Grid / flex children must be allowed to shrink, or a long command widens the page */
+.page > *, .steps > li, .pages > *, .reqs > li, .grid2 > * { min-width: 0; }
 
-nav.toc { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 24px); align-self: start; font-size: 15px; }
-nav.toc .brand { font-family: var(--font-display); font-weight: 800; font-size: 20px; margin-bottom: 16px; }
+/* English terms inside Hebrew text: isolate so they don't reorder the sentence */
+.en { direction: ltr; unicode-bidi: isolate; }
+
+/* ---- Index ---- */
+nav.toc { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 24px); align-self: start; }
+nav.toc .brand { font-family: var(--font-display); font-weight: 800; font-size: 20px; line-height: 1.3; margin-bottom: 14px; }
 nav.toc .brand span { color: var(--accent); }
 nav.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
-nav.toc a { display: block; padding: 6px 10px; border-radius: 8px; color: var(--muted); text-decoration: none; font-weight: 600; }
+nav.toc a {
+  display: block; padding: 7px 12px; border-radius: 8px;
+  color: var(--muted); text-decoration: none; font-weight: 600; font-size: 16px; line-height: 1.4;
+}
 nav.toc a:hover, nav.toc a:focus-visible { background: var(--accent-soft); color: var(--accent); outline: none; }
-@media (max-width: 860px) {
+
+@media (max-width: 900px) {
+  .page { grid-template-columns: minmax(0, 1fr); gap: 20px; padding-block: 24px 64px; }
   nav.toc { position: static; }
-  nav.toc ol { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  nav.toc ol { display: flex; flex-wrap: wrap; gap: 8px; }
+  nav.toc a { background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; font-size: 15px; }
 }
 
+/* ---- Typography ---- */
 main { min-width: 0; }
-header.intro h1 { font-family: var(--font-display); font-weight: 800; font-size: clamp(30px, 5vw, 44px); line-height: 1.15; margin: 0 0 12px; text-wrap: balance; }
-header.intro p.lead { font-size: 19px; color: var(--muted); margin: 0 0 20px; max-width: 62ch; }
-.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
-.chip { font-family: var(--font-mono); font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); }
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; line-height: 1.3; }
+header.intro h1 { font-weight: 800; font-size: clamp(28px, 6vw, 44px); line-height: 1.2; margin: 0 0 14px; }
+header.intro p.lead { font-size: clamp(18px, 2.4vw, 20px); color: var(--muted); margin: 0 0 18px; max-width: 60ch; }
+section { padding-top: 48px; scroll-margin-top: 16px; }
+section > h2 {
+  font-weight: 700; font-size: clamp(23px, 4vw, 28px); margin: 0 0 4px;
+  padding-bottom: 10px; border-bottom: 2px solid var(--line);
+}
+section > .sub { color: var(--muted); margin: 10px 0 22px; }
+h3 { font-weight: 700; font-size: clamp(18px, 2.6vw, 20px); margin: 0 0 6px; }
+p { margin: 0 0 10px; max-width: 66ch; }
+ul { margin: 6px 0 10px; padding-right: 22px; padding-left: 0; }
+li { margin-bottom: 6px; max-width: 66ch; }
+li::marker { color: var(--accent); }
+a { color: var(--accent); text-underline-offset: 3px; }
+strong { font-weight: 700; }
+
+code {
+  font-family: var(--font-mono); font-size: 0.82em;
+  background: var(--code-bg); border: 1px solid var(--line);
+  padding: 1px 6px; border-radius: 6px;
+  direction: ltr; unicode-bidi: isolate; white-space: nowrap;
+}
+
+/* ---- Hero chips ---- */
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  font-family: var(--font-mono); font-size: 13px; font-weight: 600; line-height: 1.5;
+  padding: 3px 10px; border-radius: 6px; border: 1px solid var(--line);
+  background: var(--surface); color: var(--muted); direction: ltr; unicode-bidi: isolate;
+}
+.chip.he { font-family: var(--font-body); direction: rtl; }
 .chip.win { color: var(--win); background: var(--win-soft); border-color: transparent; }
 .chip.loss { color: var(--loss); background: var(--loss-soft); border-color: transparent; }
 .chip.merged { color: var(--accent); background: var(--accent-soft); border-color: transparent; }
 
-section { padding-top: 40px; scroll-margin-top: 16px; }
-section > h2 { font-family: var(--font-display); font-weight: 700; font-size: 26px; margin: 0 0 6px; text-wrap: balance; }
-section > .sub { color: var(--muted); margin: 0 0 20px; }
-h3 { font-family: var(--font-display); font-weight: 700; font-size: 19px; margin: 28px 0 8px; }
-p, li { max-width: 68ch; }
-a { color: var(--accent); }
-strong { font-weight: 700; }
+/* ---- Requirements ---- */
+.reqs { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr)); gap: 12px; padding: 0; margin: 0; list-style: none; }
+.reqs li { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin: 0; max-width: none; line-height: 1.6; }
+.reqs b { display: block; font-family: var(--font-display); font-weight: 700; font-size: 17px; margin-bottom: 2px; }
+.reqs span { color: var(--muted); font-size: 16px; }
 
-.reqs { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; padding: 0; list-style: none; }
-.reqs li { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
-.reqs b { display: block; font-family: var(--font-display); font-weight: 700; }
-.reqs span { color: var(--muted); font-size: 15px; }
-
-ol.steps { list-style: none; counter-reset: step; padding: 0; margin: 0; display: grid; gap: 20px; }
-ol.steps > li { counter-increment: step; position: relative; padding-right: 48px; max-width: none; }
+/* ---- Numbered steps (a real sequence) ---- */
+ol.steps { list-style: none; counter-reset: step; padding: 0; margin: 0; display: grid; gap: 28px; }
+ol.steps > li { counter-increment: step; position: relative; padding-right: 50px; margin: 0; max-width: none; }
 ol.steps > li::before {
   content: counter(step); position: absolute; right: 0; top: 0;
-  width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center;
-  font-family: var(--font-display); font-weight: 700; font-size: 15px;
+  width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center;
+  font-family: var(--font-display); font-weight: 700; font-size: 16px; line-height: 1;
   background: var(--accent); color: var(--surface);
 }
-ol.steps > li > h3 { margin-top: 2px; }
-ol.steps ul { padding-right: 20px; margin: 6px 0; }
+ol.steps > li > h3 { padding-top: 2px; }
+@media (max-width: 600px) {
+  ol.steps > li { padding-right: 42px; }
+  ol.steps > li::before { width: 30px; height: 30px; font-size: 15px; }
+}
 
-.cmd { position: relative; margin: 10px 0; direction: ltr; text-align: left; }
-.cmd pre { margin: 0; background: var(--code-bg); border: 1px solid var(--line); border-radius: 10px; padding: 12px 88px 12px 14px; overflow-x: auto; font-family: var(--font-mono); font-size: 14px; line-height: 1.6; }
+/* ---- Command blocks ---- */
+.cmd { margin: 12px 0; border: 1px solid var(--line); border-radius: 12px; background: var(--code-bg); overflow: hidden; }
+.cmd .bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 6px 8px 6px 12px; border-bottom: 1px solid var(--line);
+  font-size: 14px; color: var(--muted); font-weight: 600;
+}
 .cmd button {
-  position: absolute; top: 8px; right: 8px; font: 600 12px var(--font-body); padding: 4px 10px; border-radius: 6px;
+  font: 700 13px var(--font-body); padding: 4px 12px; border-radius: 7px;
   border: 1px solid var(--line); background: var(--surface); color: var(--fg); cursor: pointer;
 }
-.cmd button:focus-visible { outline: 2px solid var(--accent); }
-code { font-family: var(--font-mono); font-size: 0.86em; background: var(--code-bg); padding: 1px 6px; border-radius: 5px; direction: ltr; unicode-bidi: isolate; }
+.cmd button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.cmd pre {
+  margin: 0; padding: 12px 14px; overflow-x: auto;
+  direction: ltr; text-align: left;
+  font-family: var(--font-mono); font-size: 14px; line-height: 1.7;
+}
 
-.note { border-radius: 10px; padding: 12px 16px; margin: 14px 0; font-size: 16px; max-width: 72ch; }
+/* ---- Callouts ---- */
+.note { border-radius: 12px; padding: 14px 18px; margin: 14px 0; max-width: 70ch; line-height: 1.7; }
 .note.tip { background: var(--accent-soft); }
 .note.warn { background: var(--warn-soft); }
-.note.warn strong { color: var(--warn); }
+.note .label { display: block; font-family: var(--font-display); font-weight: 700; margin-bottom: 2px; }
+.note.tip .label { color: var(--accent); }
+.note.warn .label { color: var(--warn); }
 .note p { margin: 0; }
 
-.pages { display: grid; gap: 14px; }
+/* ---- Page tour ---- */
+.pages { display: grid; gap: 16px; }
 .pagecard { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; }
-.pagecard h3 { margin: 0 0 6px; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
-.pagecard h3 small { font-family: var(--font-mono); font-size: 12px; color: var(--muted); font-weight: 400; direction: ltr; }
-.pagecard ul { margin: 6px 0 0; padding-right: 20px; }
+.pagecard h3 { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; margin-bottom: 8px; }
+.pagecard h3 small { font-family: var(--font-mono); font-size: 13px; color: var(--muted); font-weight: 400; direction: ltr; unicode-bidi: isolate; }
+.pagecard ul { margin-bottom: 0; }
+@media (max-width: 600px) { .pagecard { padding: 16px; } }
 
-.tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
-table { border-collapse: collapse; width: 100%; font-size: 15px; }
-th, td { text-align: right; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
-th { font-family: var(--font-display); font-weight: 700; font-size: 14px; color: var(--muted); }
-tr:last-child td { border-bottom: none; }
-td:first-child { font-family: var(--font-mono); font-size: 13px; direction: ltr; text-align: left; color: var(--loss); min-width: 220px; }
+.legend { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 180px), 1fr)); gap: 6px 16px; margin: 8px 0 12px; padding: 12px 14px; background: var(--bg); border-radius: 10px; font-size: 16px; }
+.legend span { display: flex; align-items: center; gap: 8px; }
+.arrow { font-weight: 800; font-size: 18px; line-height: 1; }
 
-.legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 10px 0; font-size: 15px; }
-.legend span { display: inline-flex; align-items: center; gap: 6px; }
-.arrow { font-weight: 800; }
-footer { margin-top: 56px; color: var(--muted); font-size: 14px; border-top: 1px solid var(--line); padding-top: 16px; }
-@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+/* ---- Troubleshooting: table on wide screens, stacked cards on phones ---- */
+.issues { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); overflow: hidden; }
+.issue { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 6px 24px; padding: 14px 18px; border-bottom: 1px solid var(--line); }
+.issue:last-child { border-bottom: none; }
+.issue .msg { font-family: var(--font-mono); font-size: 14px; line-height: 1.6; color: var(--loss); direction: ltr; text-align: left; overflow-wrap: anywhere; }
+.issue .msg.he { font-family: var(--font-body); font-size: 17px; font-weight: 700; direction: rtl; text-align: right; color: var(--fg); }
+.issue .fix { line-height: 1.7; }
+.issue .fix code { white-space: normal; overflow-wrap: anywhere; }
+@media (max-width: 700px) {
+  .issue { grid-template-columns: minmax(0, 1fr); }
+  .issue .msg { background: var(--loss-soft); padding: 6px 10px; border-radius: 8px; }
+  .issue .msg.he { background: transparent; padding: 0; }
+}
+
+footer { margin-top: 56px; color: var(--muted); font-size: 15px; border-top: 1px solid var(--line); padding-top: 16px; }
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
 </style>
 </head>
 <body>
 
 <div class="page" dir="rtl" lang="he">
   <nav class="toc" aria-label="תוכן העניינים">
-    <div class="brand">TraderNet <span>Journal</span></div>
+    <div class="brand"><span class="en">TraderNet <span>Journal</span></span></div>
     <ol>
       <li><a href="#requirements">מה צריך</a></li>
       <li><a href="#install">התקנה חד-פעמית</a></li>
       <li><a href="#daily">הפעלה יומיומית</a></li>
-      <li><a href="#connect">חיבור חשבון MT5</a></li>
+      <li><a href="#connect">חיבור חשבון</a></li>
       <li><a href="#pages">מדריך לאתר</a></li>
       <li><a href="#troubleshooting">פתרון תקלות</a></li>
       <li><a href="#security">אבטחה ופרטיות</a></li>
@@ -151,73 +222,77 @@ footer { margin-top: 56px; color: var(--muted); font-size: 14px; border-top: 1px
 
   <main>
     <header class="intro">
-      <h1>יומן מסחר שמתמלא לבד מ-MetaTrader 5</h1>
-      <p class="lead">המערכת מושכת את כל העסקאות שלך מ-MT5, שומרת אותן במסד נתונים משלך, מאחדת פוזיציות צמודות לעסקה אחת, ומציגה כל עסקה על גרף נרות עם חץ כניסה וחץ יציאה. המדריך מסביר איך להתקין, לחבר את החשבון ולהשתמש בכל דף.</p>
+      <h1>יומן מסחר שמתמלא לבד מ-<span class="en">MetaTrader 5</span></h1>
+      <p class="lead">המערכת מושכת את כל העסקאות שלך מ-<span class="en">MT5</span> ושומרת אותן במסד נתונים משלך. היא מאחדת פוזיציות צמודות לעסקה אחת, ומציגה כל עסקה על גרף נרות עם חץ כניסה וחץ יציאה.</p>
+      <p class="lead">המדריך מסביר איך להתקין, לחבר את החשבון ולהשתמש בכל דף.</p>
       <div class="chips" aria-hidden="true">
         <span class="chip win">WIN +$389.15</span>
         <span class="chip loss">LOSS −$77.83</span>
-        <span class="chip merged">מאוחד · 4 פוז׳</span>
+        <span class="chip merged he">מאוחד · 4 פוזיציות</span>
         <span class="chip">XAUUSD.m · M15</span>
       </div>
     </header>
 
     <section id="requirements">
       <h2>מה צריך לפני שמתחילים</h2>
-      <p class="sub">הכל חינמי. ההתקנה לוקחת בערך 20 דקות, פעם אחת.</p>
+      <p class="sub">הכל חינמי. ההתקנה לוקחת בערך 20 דקות, ועושים אותה פעם אחת.</p>
       <ul class="reqs">
-        <li><b>מחשב Windows</b><span>ספריית ה-Python של MT5 עובדת רק על Windows.</span></li>
-        <li><b>MetaTrader 5 למחשב</b><span>מותקן, פתוח ומחובר לחשבון שלך.</span></li>
-        <li><b>Node.js 18 ומעלה</b><span>מ-nodejs.org, גרסת LTS.</span></li>
-        <li><b>Python 3.8 ומעלה (64-bit)</b><span>בהתקנה סמן <code>Add python.exe to PATH</code>.</span></li>
-        <li><b>Git</b><span>מ-git-scm.com, להורדת הפרויקט ולעדכונים.</span></li>
-        <li><b>חשבון MongoDB Atlas</b><span>המסד שבו נשמרות העסקאות שלך. התוכנית החינמית (M0) מספיקה.</span></li>
+        <li><b>מחשב <span class="en">Windows</span></b><span>ספריית ה-<span class="en">Python</span> של <span class="en">MT5</span> עובדת רק על <span class="en">Windows</span>.</span></li>
+        <li><b>תוכנת <span class="en">MetaTrader 5</span></b><span>מותקנת במחשב, פתוחה ומחוברת לחשבון שלך.</span></li>
+        <li><b><span class="en">Node.js</span> גרסה 18 ומעלה</b><span>מהאתר <span class="en">nodejs.org</span>, גרסת <span class="en">LTS</span>.</span></li>
+        <li><b><span class="en">Python</span> גרסה 3.8 ומעלה</b><span>גרסת 64 ביט. בזמן ההתקנה סמנו את <code>Add python.exe to PATH</code>.</span></li>
+        <li><b><span class="en">Git</span></b><span>מהאתר <span class="en">git-scm.com</span>. משמש להורדת הפרויקט ולעדכונים.</span></li>
+        <li><b>חשבון <span class="en">MongoDB Atlas</span></b><span>המסד שבו נשמרות העסקאות שלך. התוכנית החינמית מספיקה.</span></li>
       </ul>
     </section>
 
     <section id="install">
       <h2>התקנה חד-פעמית</h2>
-      <p class="sub">לפי הסדר. את הפקודות מריצים בחלון <strong>Command Prompt</strong> או <strong>PowerShell</strong>.</p>
+      <p class="sub">לפי הסדר. את הפקודות מריצים בחלון <strong><span class="en">Command Prompt</span></strong> או <strong><span class="en">PowerShell</span></strong>.</p>
       <ol class="steps">
         <li>
-          <h3>יצירת מסד נתונים ב-MongoDB Atlas</h3>
+          <h3>יצירת מסד נתונים ב-<span class="en">MongoDB Atlas</span></h3>
           <ul>
-            <li>היכנס ל-<a href="https://www.mongodb.com/cloud/atlas" target="_blank" rel="noopener">mongodb.com/cloud/atlas</a> וצור Cluster חינמי (M0).</li>
-            <li>תחת <strong>Database Access</strong> צור משתמש DB עם סיסמה, והרשאת <code>Read and write to any database</code>.</li>
-            <li>תחת <strong>Network Access</strong> לחץ <strong>Add Current IP Address</strong>.</li>
-            <li>חזור ל-Cluster, לחץ <strong>Connect</strong> ← <strong>Drivers</strong> והעתק את מחרוזת החיבור.</li>
+            <li>היכנסו ל-<a href="https://www.mongodb.com/cloud/atlas" target="_blank" rel="noopener"><span class="en">mongodb.com/cloud/atlas</span></a> וצרו <span class="en">Cluster</span> חינמי.</li>
+            <li>במסך <strong><span class="en">Database Access</span></strong>: צרו משתמש עם סיסמה, ותנו לו הרשאת קריאה וכתיבה לכל המסדים.</li>
+            <li>במסך <strong><span class="en">Network Access</span></strong>: לחצו <strong><span class="en">Add Current IP Address</span></strong>.</li>
+            <li>חזרו ל-<span class="en">Cluster</span>, לחצו <strong><span class="en">Connect</span></strong> ואז <strong><span class="en">Drivers</span></strong>, והעתיקו את מחרוזת החיבור.</li>
           </ul>
-          <div class="note warn"><p><strong>חשוב:</strong> גם אם נכנסת ל-Atlas עם חשבון גוגל, החיבור מהקוד משתמש במשתמש ה-DB שיצרת בשלב הזה ובסיסמה שלו. אם שכחת אותה, ב-Database Access לוחצים Edit ← Edit Password וקובעים חדשה. עדיף סיסמה עם אותיות ומספרים בלבד.</p></div>
+          <div class="note warn">
+            <span class="label">שימו לב</span>
+            <p>גם אם נכנסתם ל-<span class="en">Atlas</span> עם חשבון גוגל, החיבור מהקוד משתמש במשתמש שיצרתם במסך <span class="en">Database Access</span> ובסיסמה שלו. שכחתם אותה? לחצו שם על <span class="en">Edit</span> ואז <span class="en">Edit Password</span>, וקבעו חדשה. עדיף סיסמה עם אותיות ומספרים בלבד.</p>
+          </div>
         </li>
         <li>
           <h3>הורדת הפרויקט</h3>
-          <div class="cmd"><pre>git clone https://github.com/NaorShamsian/TradingJournal.git
-cd TradingJournal</pre><button type="button">העתק</button></div>
+          <div class="cmd"><div class="bar"><span>פקודה</span><button type="button">העתק</button></div><pre>git clone https://github.com/NaorShamsian/TradingJournal.git
+cd TradingJournal</pre></div>
         </li>
         <li>
-          <h3>הגדרת השרת (backend)</h3>
-          <div class="cmd"><pre>cd backend
+          <h3>הגדרת השרת</h3>
+          <div class="cmd"><div class="bar"><span>פקודה</span><button type="button">העתק</button></div><pre>cd backend
 npm install
-copy .env.example .env</pre><button type="button">העתק</button></div>
-          <p>פתח את הקובץ <code>backend\.env</code> בעורך טקסט ושים את מחרוזת החיבור בשורה <code>MONGO_URI</code>:</p>
-          <div class="cmd"><pre>MONGO_URI=mongodb+srv://USER:PASSWORD@cluster0.xxxxx.mongodb.net/trading_journal?retryWrites=true&amp;w=majority</pre><button type="button">העתק</button></div>
+copy .env.example .env</pre></div>
+          <p>פתחו את הקובץ <code>backend\.env</code> בעורך טקסט, ושימו את מחרוזת החיבור בשורה של <code>MONGO_URI</code>. היא צריכה להיראות כך:</p>
+          <div class="cmd"><div class="bar"><span>דוגמה</span><button type="button">העתק</button></div><pre>MONGO_URI=mongodb+srv://USER:PASSWORD@cluster0.xxxxx.mongodb.net/trading_journal?retryWrites=true&amp;w=majority</pre></div>
           <ul>
-            <li>החלף את <code>&lt;db_password&gt;</code> בסיסמה <strong>בלי</strong> הסוגריים <code>&lt; &gt;</code>.</li>
-            <li>הוסף <code>/trading_journal</code> אחרי <code>.mongodb.net</code> ולפני ה-<code>?</code>.</li>
-            <li>אם יש בסיסמה תווים מיוחדים, קודד אותם: <code>@</code>=<code>%40</code>, <code>#</code>=<code>%23</code>, <code>:</code>=<code>%3A</code>, <code>/</code>=<code>%2F</code>.</li>
+            <li>במקום <code>&lt;db_password&gt;</code> כתבו את הסיסמה, <strong>בלי</strong> הסימנים <code>&lt;</code> ו-<code>&gt;</code>.</li>
+            <li>הוסיפו <code>/trading_journal</code> מיד אחרי <code>.mongodb.net</code>.</li>
+            <li>אם יש בסיסמה תווים מיוחדים, החליפו אותם: <code>@</code> ב-<code>%40</code>, <code>#</code> ב-<code>%23</code>, <code>:</code> ב-<code>%3A</code>, <code>/</code> ב-<code>%2F</code>.</li>
           </ul>
         </li>
         <li>
-          <h3>התקנת ספריות ה-Python</h3>
-          <div class="cmd"><pre>cd ..\sync
-pip install -r requirements.txt</pre><button type="button">העתק</button></div>
-          <p>זה מתקין את הספרייה <code>MetaTrader5</code>, שדרכה המערכת מדברת עם תוכנת MT5.</p>
+          <h3>התקנת ספריות ה-<span class="en">Python</span></h3>
+          <div class="cmd"><div class="bar"><span>פקודה</span><button type="button">העתק</button></div><pre>cd ..\sync
+pip install -r requirements.txt</pre></div>
+          <p>זה מתקין את הספרייה שדרכה המערכת מדברת עם תוכנת <span class="en">MT5</span>.</p>
         </li>
         <li>
-          <h3>הגדרת האתר (frontend)</h3>
-          <div class="cmd"><pre>cd ..\frontend
+          <h3>הגדרת האתר</h3>
+          <div class="cmd"><div class="bar"><span>פקודה</span><button type="button">העתק</button></div><pre>cd ..\frontend
 npm install
-copy .env.example .env</pre><button type="button">העתק</button></div>
-          <p>בקובץ הזה אין צורך לשנות כלום.</p>
+copy .env.example .env</pre></div>
+          <p>בקובץ הזה לא צריך לשנות כלום.</p>
         </li>
       </ol>
     </section>
@@ -226,103 +301,118 @@ copy .env.example .env</pre><button type="button">העתק</button></div>
       <h2>הפעלה יומיומית</h2>
       <p class="sub">בכל פעם שרוצים לעבוד עם היומן.</p>
       <ol class="steps">
-        <li><h3>פתח את MetaTrader 5</h3><p>התוכנה צריכה להיות פתוחה ומחוברת כדי שעסקאות חדשות ייכנסו. ההיסטוריה שכבר נשמרה זמינה גם כשהיא סגורה.</p></li>
         <li>
-          <h3>הפעל את השרת (חלון ראשון)</h3>
-          <div class="cmd"><pre>cd TradingJournal\backend
-npm run dev</pre><button type="button">העתק</button></div>
-          <p>כשהכל תקין יופיע <code>MongoDB Connected</code> ואחריו <code>Server running on port 5000</code>.</p>
+          <h3>פתחו את <span class="en">MetaTrader 5</span></h3>
+          <p>התוכנה צריכה להיות פתוחה ומחוברת כדי שעסקאות חדשות ייכנסו. היסטוריה שכבר נשמרה זמינה גם כשהיא סגורה.</p>
         </li>
         <li>
-          <h3>הפעל את האתר (חלון שני)</h3>
-          <div class="cmd"><pre>cd TradingJournal\frontend
-npm run dev</pre><button type="button">העתק</button></div>
+          <h3>הפעילו את השרת, בחלון ראשון</h3>
+          <div class="cmd"><div class="bar"><span>פקודה</span><button type="button">העתק</button></div><pre>cd TradingJournal\backend
+npm run dev</pre></div>
+          <p>כשהכל תקין יופיעו השורות <code>MongoDB Connected</code> ו-<code>Server running on port 5000</code>.</p>
         </li>
-        <li><h3>פתח בדפדפן</h3><p>היכנס ל-<code>http://localhost:5173</code>. את שני החלונות משאירים פתוחים כל זמן העבודה.</p></li>
+        <li>
+          <h3>הפעילו את האתר, בחלון שני</h3>
+          <div class="cmd"><div class="bar"><span>פקודה</span><button type="button">העתק</button></div><pre>cd TradingJournal\frontend
+npm run dev</pre></div>
+        </li>
+        <li>
+          <h3>פתחו בדפדפן</h3>
+          <p>היכנסו לכתובת <code>http://localhost:5173</code>. את שני החלונות משאירים פתוחים כל זמן העבודה.</p>
+        </li>
       </ol>
     </section>
 
     <section id="connect">
-      <h2>חיבור חשבון MT5</h2>
+      <h2>חיבור חשבון <span class="en">MT5</span></h2>
       <p class="sub">פעם אחת לכל חשבון. אפשר לחבר כמה חשבונות ולעבור ביניהם.</p>
       <ol class="steps">
-        <li><h3>פתח את תפריט החשבונות</h3><p>בתחתית התפריט הצדדי לחץ על כרטיס החשבון, ואז על <strong>הוספת חשבון</strong>.</p></li>
         <li>
-          <h3>מלא את הפרטים</h3>
-          <ul>
-            <li><strong>מספר חשבון (Login)</strong> ו<strong>סיסמה</strong>.</li>
-            <li><strong>שרת:</strong> בדיוק כמו שמופיע ב-MT5, למשל <code>JustMarkets-Live3</code>. ב-MT5 זה מופיע תחת File ← Login to Trade Account.</li>
-            <li><strong>יתרת בסיס ואחוז סיכון:</strong> מהם מחושב גודל ה-1R. אפשר לשנות אותם אחר כך.</li>
-            <li><strong>עומק היסטוריה:</strong> כמה אחורה לייבא. ברירת המחדל היא כל ההיסטוריה.</li>
-          </ul>
-          <div class="note tip"><p><strong>מומלץ:</strong> השתמש בסיסמת המשקיע (Investor password) של החשבון, אם הברוקר נותן כזו. היא מאפשרת רק לקרוא היסטוריה ולא לפתוח עסקאות, וזה כל מה שהיומן צריך.</p></div>
+          <h3>פתחו את תפריט החשבונות</h3>
+          <p>בתחתית התפריט הצדדי לחצו על כרטיס החשבון, ואז על <strong>הוספת חשבון</strong>.</p>
         </li>
-        <li><h3>לחץ "שמור חשבון"</h3><p>המערכת מתחברת ל-MT5, מוודאת שהפרטים נכונים ומייבאת את כל ההיסטוריה. זה לוקח בין כמה שניות לחצי דקה. מאותו רגע עסקאות חדשות נכנסות אוטומטית כל דקה.</p></li>
+        <li>
+          <h3>מלאו את הפרטים</h3>
+          <ul>
+            <li><strong>מספר חשבון וסיסמה</strong>, כמו שמתחברים ב-<span class="en">MT5</span>.</li>
+            <li><strong>שרת</strong>: בדיוק כמו שמופיע ב-<span class="en">MT5</span>, למשל <code>JustMarkets-Live3</code>.</li>
+            <li><strong>יתרת בסיס ואחוז סיכון</strong>: מהם מחושב גודל ה-<span class="en">1R</span>. אפשר לשנות אחר כך.</li>
+            <li><strong>עומק היסטוריה</strong>: כמה אחורה לייבא. ברירת המחדל היא כל ההיסטוריה.</li>
+          </ul>
+          <div class="note tip">
+            <span class="label">מומלץ</span>
+            <p>השתמשו בסיסמת המשקיע של החשבון (<span class="en">Investor password</span>), אם הברוקר נותן כזו. היא מאפשרת רק לקרוא היסטוריה ולא לפתוח עסקאות, וזה כל מה שהיומן צריך.</p>
+          </div>
+        </li>
+        <li>
+          <h3>לחצו "שמור חשבון"</h3>
+          <p>המערכת מתחברת ל-<span class="en">MT5</span>, בודקת שהפרטים נכונים ומייבאת את כל ההיסטוריה. זה לוקח בין כמה שניות לחצי דקה.</p>
+          <p>מאותו רגע עסקאות חדשות נכנסות אוטומטית, פעם בדקה.</p>
+        </li>
       </ol>
     </section>
 
     <section id="pages">
       <h2>מדריך לאתר</h2>
-      <p class="sub">מה יש בכל דף ומה אפשר לעשות בו. השפה (עברית/אנגלית) ומצב כהה/בהיר מתחלפים בכפתורים בפינה העליונה.</p>
+      <p class="sub">מה יש בכל דף ומה אפשר לעשות בו. השפה ומצב כהה או בהיר מתחלפים בכפתורים בפינה העליונה.</p>
       <div class="pages">
         <article class="pagecard">
-          <h3>לוח בקרה <small>/</small></h3>
+          <h3>לוח בקרה</h3>
           <ul>
             <li><strong>בחירת תקופה</strong>: שבוע, חודש, רבעון, שנה או הכל. כל הנתונים בדף מתעדכנים לפיה.</li>
-            <li><strong>פרטי התקופה</strong>: יתרת הפתיחה בתחילת התקופה, יתרת הסגירה היום, רווח מהמסחר בדולרים ובאחוזים, והפקדות ומשיכות. היתרות מחושבות מההיסטוריה האמיתית ב-MT5.</li>
-            <li><strong>נקודת איזון</strong>: ברירת המחדל היא יתרת הפתיחה של התקופה. לחיצה על הסכום מאפשרת לקבוע ערך אחר, ו"חזור לאוטומטי" מחזיר את ברירת המחדל.</li>
-            <li><strong>עקומת הון</strong>: ירוקה מעל נקודת האיזון ואדומה מתחתיה, עם קו "מכאן ברווח" והתאריך שממנו אתה ברווח ברציפות. המתג "רווח ממסחר / יתרה בפועל" קובע אם הפקדות ומשיכות נכללות בעקומה.</li>
+            <li><strong>פרטי התקופה</strong>: יתרת הפתיחה בתחילת התקופה, יתרת הסגירה היום, הרווח מהמסחר בדולרים ובאחוזים, והפקדות ומשיכות. היתרות מחושבות מההיסטוריה האמיתית ב-<span class="en">MT5</span>.</li>
+            <li><strong>נקודת איזון</strong>: ברירת המחדל היא יתרת הפתיחה של התקופה. לחיצה על הסכום מאפשרת לקבוע ערך אחר, ו"חזור לאוטומטי" מבטל את השינוי.</li>
+            <li><strong>עקומת הון</strong>: ירוקה מעל נקודת האיזון ואדומה מתחתיה. מסומן עליה התאריך שממנו אתם ברווח ברציפות. המתג "רווח ממסחר / יתרה בפועל" קובע אם הפקדות ומשיכות נכללות.</li>
             <li><strong>רווח יומי</strong>: עמודה ירוקה ליום רווחי ואדומה ליום מפסיד.</li>
           </ul>
         </article>
         <article class="pagecard">
-          <h3>יומן עסקאות <small>/trades</small></h3>
+          <h3>יומן עסקאות</h3>
           <ul>
-            <li>כל עסקה מוצגת בכרטיס <strong>ירוק</strong> (רווח) או <strong>אדום</strong> (הפסד).</li>
-            <li><strong>איחוד חכם</strong>: פוזיציות באותו סימבול ובאותו כיוון שנפתחו כשקודמת עוד הייתה פתוחה, או עד 5 דקות אחריה, מוצגות כעסקה אחת עם התג <span class="chip merged">מאוחד · 4 פוז׳</span>. הרווח והנפח הם הסכום של כל הפוזיציות.</li>
-            <li>המתג <strong>"עסקאות מאוחדות / כל פוזיציה בנפרד"</strong> מראה את הנתונים המקוריים מ-MT5.</li>
-            <li>יש סינון לפי סימבול, אסטרטגיה, סשן, תוצאה ותאריך, וחיפוש בהערות.</li>
+            <li>כל עסקה מוצגת בכרטיס <strong style="color:var(--win)">ירוק</strong> אם הרוויחה, או <strong style="color:var(--loss)">אדום</strong> אם הפסידה.</li>
+            <li><strong>איחוד חכם</strong>: כמה פוזיציות באותו סימבול ובאותו כיוון, שנפתחו כשהקודמת עוד הייתה פתוחה או עד 5 דקות אחריה, מוצגות כעסקה אחת עם התג <span class="chip merged he">מאוחד · 4 פוזיציות</span>. הרווח והנפח הם הסכום של כולן.</li>
+            <li>המתג <strong>"עסקאות מאוחדות / כל פוזיציה בנפרד"</strong> מראה את הנתונים המקוריים מ-<span class="en">MT5</span>.</li>
+            <li>אפשר לסנן לפי סימבול, אסטרטגיה, סשן, תוצאה ותאריך, ולחפש בהערות.</li>
           </ul>
         </article>
         <article class="pagecard">
-          <h3>דף עסקה <small>/trades/:id</small></h3>
-          <ul>
-            <li><strong>גרף נרות</strong> מ-MT5 עם הנרות שלפני העסקה, בזמן שהיא פתוחה ואחריה:</li>
-          </ul>
+          <h3>דף עסקה</h3>
+          <p>לוחצים על "גרף ויומן" בכרטיס של עסקה. בראש הדף יש גרף נרות מ-<span class="en">MT5</span>, עם הנרות שלפני העסקה, בזמן שהיא פתוחה ואחריה:</p>
           <div class="legend">
-            <span><span class="arrow" style="color:#3b82f6">▲</span> כניסת BUY</span>
-            <span><span class="arrow" style="color:#f97316">▼</span> כניסת SELL</span>
-            <span><span class="arrow" style="color:var(--win)">▼▲</span> יציאה ברווח</span>
-            <span><span class="arrow" style="color:var(--loss)">▼▲</span> יציאה בהפסד</span>
-            <span>קו מקווקו = מסלול כל פוזיציה · קווי SL ו-TP</span>
+            <span><span class="arrow" style="color:var(--buy)">▲</span> כניסה בקנייה</span>
+            <span><span class="arrow" style="color:var(--sell)">▼</span> כניסה במכירה</span>
+            <span><span class="arrow" style="color:var(--win)">▼▲</span> חץ יציאה ברווח</span>
+            <span><span class="arrow" style="color:var(--loss)">▼▲</span> חץ יציאה בהפסד</span>
+            <span>קו מקווקו: מסלול כל פוזיציה</span>
+            <span>קווים אופקיים: <span class="en">SL</span> ו-<span class="en">TP</span></span>
           </div>
           <ul>
-            <li>הטיים-פריים נבחר אוטומטית לפי אורך העסקה. אפשר להחליף ל-M1, M5, M15, H1 או H4. בפעם הראשונה MT5 צריך להיות פתוח, ואחרי זה הגרף נשמר וזמין גם בלעדיו.</li>
-            <li>בעסקה מאוחדת יש טבלה של כל הפוזיציות: זמן ומחיר כניסה ויציאה, ורווח.</li>
-            <li><strong>יומן</strong>: אסטרטגיה, סשן, רגש, טעויות, ציון עצמי, סיבות כניסה ויציאה והערות. צילומי מסך מדביקים עם <code>Ctrl+V</code>. השמירה חלה על כל הפוזיציות של העסקה.</li>
+            <li>הטיים-פריים נבחר לבד לפי אורך העסקה, ואפשר להחליף אותו בכפתורים. בפעם הראשונה <span class="en">MT5</span> צריך להיות פתוח. אחרי זה הגרף נשמר וזמין גם בלעדיו.</li>
+            <li>בעסקה מאוחדת יש טבלה של כל הפוזיציות: מתי ובאיזה מחיר כל אחת נכנסה ויצאה, וכמה הרוויחה.</li>
+            <li><strong>יומן</strong>: אסטרטגיה, סשן, רגש, טעויות, ציון עצמי, סיבות כניסה ויציאה והערות. צילום מסך מדביקים עם <code>Ctrl+V</code>. השמירה חלה על כל הפוזיציות של העסקה.</li>
           </ul>
         </article>
         <article class="pagecard">
-          <h3>לוח שנה ואנליזה <small>/calendar · /analytics</small></h3>
+          <h3>לוח שנה ואנליזה</h3>
           <ul>
-            <li>לוח שנה: כל יום צבוע לפי הרווח שלו. לחיצה על יום מציגה את העסקאות שלו.</li>
-            <li>אנליזה: ביצועים לפי סימבול, סשן, אסטרטגיה ושעה ביום.</li>
+            <li><strong>לוח שנה</strong>: כל יום צבוע לפי הרווח שלו. לחיצה על יום מציגה את העסקאות שלו.</li>
+            <li><strong>אנליזה</strong>: ביצועים לפי סימבול, סשן, אסטרטגיה ושעה ביום.</li>
           </ul>
         </article>
         <article class="pagecard">
-          <h3>חשבון וסיכון <small>/account</small></h3>
+          <h3>חשבון וסיכון</h3>
           <ul>
-            <li><strong>יתרת בסיס</strong>: ידנית, או אוטומטית לפי ההפקדה הראשונה או ההפקדות נטו ב-MT5.</li>
-            <li><strong>סיכון לעסקה</strong>: אפשר להזין באחוזים או ישירות כ-1R בדולרים, והשני מחושב לבד. גודל ה-R של כל עסקה באתר מחושב מזה.</li>
-            <li>נתונים חיים מ-MT5: יתרה, equity, הפקדות, משיכות ומינוף.</li>
-            <li>מצב החיבור ל-MongoDB, כמה עסקאות שמורות, מתי היה הסנכרון האחרון, וכפתור "סנכרן עכשיו".</li>
+            <li><strong>יתרת בסיס</strong>: ידנית, או אוטומטית לפי ההפקדה הראשונה או ההפקדות נטו ב-<span class="en">MT5</span>.</li>
+            <li><strong>סיכון לעסקה</strong>: באחוזים או ישירות כ-<span class="en">1R</span> בדולרים, והשני מחושב לבד. ה-<span class="en">R</span> של כל עסקה באתר מחושב מזה.</li>
+            <li>נתונים חיים מ-<span class="en">MT5</span>: יתרה, הון, הפקדות, משיכות ומינוף.</li>
+            <li>מצב החיבור למסד הנתונים, כמה עסקאות שמורות, מתי היה הסנכרון האחרון, וכפתור "סנכרן עכשיו".</li>
           </ul>
         </article>
         <article class="pagecard">
-          <h3>הגדרות <small>/settings</small></h3>
+          <h3>הגדרות</h3>
           <ul>
             <li>רשימת האסטרטגיות שמופיעה ביומן, ומטבע התצוגה.</li>
-            <li><strong>איחוד עסקאות</strong>: אפשר לכבות את האיחוד, או לשנות את החלון (ברירת מחדל 5 דקות; 0 = לאחד רק פוזיציות חופפות).</li>
+            <li><strong>איחוד עסקאות</strong>: אפשר לכבות אותו או לשנות את החלון. ברירת המחדל היא 5 דקות, ו-0 מאחד רק פוזיציות שהיו פתוחות באותו זמן.</li>
           </ul>
         </article>
       </div>
@@ -330,52 +420,68 @@ npm run dev</pre><button type="button">העתק</button></div>
 
     <section id="troubleshooting">
       <h2>פתרון תקלות</h2>
-      <p class="sub">ההודעה שמופיעה, והפתרון.</p>
-      <div class="tablewrap">
-        <table>
-          <thead><tr><th>הודעה</th><th>מה לעשות</th></tr></thead>
-          <tbody>
-            <tr><td>MetaTrader5 Python library is not installed</td><td>הרץ <code>pip install -r requirements.txt</code> בתיקייה <code>sync</code>. אם יש לך כמה גרסאות Python, הגדר ב-<code>backend\.env</code> את <code>PYTHON_PATH</code> עם הנתיב המלא ל-python.exe.</td></tr>
-            <tr><td>bad auth : authentication failed</td><td>הסיסמה ב-<code>MONGO_URI</code> שגויה. בדוק שהסרת את <code>&lt; &gt;</code> ושזו סיסמת משתמש ה-DB ולא סיסמת הכניסה ל-Atlas.</td></tr>
-            <tr><td>MongoDB connection error / Could not connect to any servers</td><td>ב-Atlas ← Network Access הוסף את ה-IP הנוכחי שלך. ה-IP משתנה לפעמים, למשל ברשת אחרת.</td></tr>
-            <tr><td>MT5 connection verification failed</td><td>ודא ש-MT5 פתוח ומחובר לאותו חשבון, ושהשרת והסיסמה הוקלדו בדיוק כמו ב-MT5.</td></tr>
-            <tr><td>Could not load the chart</td><td>פתח את MT5 ולחץ על כפתור טיים-פריים כדי לנסות שוב. בעסקאות ישנות הגרף עובר לבד לטיים-פריים גדול יותר, כי הברוקר לא שומר נרות של דקה לאורך זמן.</td></tr>
-            <tr><td>העסקאות לא מופיעות</td><td>בדוק שהחשבון הנכון מסומן כפעיל בתחתית התפריט. בדף "חשבון וסיכון" רואים כמה עסקאות שמורות ומה השגיאה האחרונה בסנכרון.</td></tr>
-            <tr><td>עסקה שמחקתי חזרה</td><td>הסנכרון בודק מחדש את 3 הימים האחרונים, ולכן עסקה שנמחקה מהתקופה הזו תיובא שוב. עסקאות ישנות יותר לא יחזרו.</td></tr>
-          </tbody>
-        </table>
+      <p class="sub">ההודעה שמופיעה, ומה לעשות.</p>
+      <div class="issues">
+        <div class="issue">
+          <div class="msg">MetaTrader5 Python library is not installed</div>
+          <div class="fix">הריצו <code>pip install -r requirements.txt</code> בתיקייה <code>sync</code>. אם מותקנות כמה גרסאות <span class="en">Python</span>, הגדירו בקובץ <code>backend\.env</code> את <code>PYTHON_PATH</code> עם הנתיב המלא לקובץ <code>python.exe</code>.</div>
+        </div>
+        <div class="issue">
+          <div class="msg">bad auth : authentication failed</div>
+          <div class="fix">הסיסמה במחרוזת החיבור שגויה. ודאו שהסרתם את <code>&lt;</code> ו-<code>&gt;</code>, ושזו הסיסמה של משתמש המסד ולא של הכניסה ל-<span class="en">Atlas</span>.</div>
+        </div>
+        <div class="issue">
+          <div class="msg">MongoDB connection error</div>
+          <div class="fix">ב-<span class="en">Atlas</span>, במסך <span class="en">Network Access</span>, הוסיפו את כתובת ה-<span class="en">IP</span> הנוכחית. היא משתנה לפעמים, למשל כשמתחברים מרשת אחרת.</div>
+        </div>
+        <div class="issue">
+          <div class="msg">MT5 connection verification failed</div>
+          <div class="fix">ודאו ש-<span class="en">MT5</span> פתוח ומחובר לאותו חשבון, ושהשרת והסיסמה הוקלדו בדיוק כמו ב-<span class="en">MT5</span>.</div>
+        </div>
+        <div class="issue">
+          <div class="msg">Could not load the chart</div>
+          <div class="fix">פתחו את <span class="en">MT5</span> ולחצו על אחד מכפתורי הטיים-פריים כדי לנסות שוב. בעסקאות ישנות הגרף עובר לבד לטיים-פריים גדול יותר, כי הברוקר לא שומר נרות של דקה לאורך זמן.</div>
+        </div>
+        <div class="issue">
+          <div class="msg he">העסקאות לא מופיעות</div>
+          <div class="fix">בדקו שהחשבון הנכון מסומן כפעיל בתחתית התפריט. בדף "חשבון וסיכון" רואים כמה עסקאות שמורות ומה השגיאה האחרונה בסנכרון.</div>
+        </div>
+        <div class="issue">
+          <div class="msg he">עסקה שמחקתי חזרה</div>
+          <div class="fix">הסנכרון בודק מחדש את 3 הימים האחרונים, ולכן עסקה שנמחקה מהתקופה הזו תיובא שוב. עסקאות ישנות יותר לא יחזרו.</div>
+        </div>
       </div>
     </section>
 
     <section id="security">
       <h2>אבטחה ופרטיות</h2>
       <ul>
-        <li><strong>כל אחד עם מסד נתונים משלו.</strong> העסקאות, ההערות ופרטי החשבון נשמרים ב-Atlas שלך בלבד.</li>
-        <li><strong>סיסמת MT5 נשמרת במסד בלי הצפנה.</strong> לכן מומלץ להשתמש בסיסמת המשקיע (קריאה בלבד), ולא לשתף את גישת ה-Atlas עם אף אחד.</li>
-        <li><strong>הקובץ <code>.env</code> הוא פרטי.</strong> הוא מוחרג מ-git ולא יעלה ל-GitHub. לא לשלוח אותו לאף אחד.</li>
-        <li><strong>האתר רץ רק על המחשב שלך</strong> (<code>localhost</code>) ואין בו מסך כניסה. לא לפתוח את הפורטים 5000 או 5173 לאינטרנט.</li>
+        <li><strong>לכל אחד מסד נתונים משלו.</strong> העסקאות, ההערות ופרטי החשבון נשמרים רק ב-<span class="en">Atlas</span> שלכם.</li>
+        <li><strong>סיסמת <span class="en">MT5</span> נשמרת במסד בלי הצפנה.</strong> לכן מומלץ להשתמש בסיסמת המשקיע, שהיא לקריאה בלבד, ולא לשתף את הגישה ל-<span class="en">Atlas</span> עם אף אחד.</li>
+        <li><strong>הקובץ <code>.env</code> פרטי.</strong> הוא לא עולה ל-<span class="en">GitHub</span>, ואין לשלוח אותו לאף אחד.</li>
+        <li><strong>האתר רץ רק על המחשב שלכם</strong> ואין בו מסך כניסה. אל תפתחו את הפורטים 5000 ו-5173 לאינטרנט.</li>
       </ul>
     </section>
 
     <section id="update">
       <h2>עדכון לגרסה חדשה</h2>
-      <p class="sub">כשיש שינויים חדשים ב-GitHub. סגור קודם את שני החלונות של השרת והאתר.</p>
-      <div class="cmd"><pre>cd TradingJournal
+      <p class="sub">כשיש שינויים חדשים ב-<span class="en">GitHub</span>. קודם סגרו את שני החלונות של השרת והאתר.</p>
+      <div class="cmd"><div class="bar"><span>פקודה</span><button type="button">העתק</button></div><pre>cd TradingJournal
 git pull
 cd backend &amp;&amp; npm install &amp;&amp; cd ..
 cd frontend &amp;&amp; npm install &amp;&amp; cd ..
-cd sync &amp;&amp; pip install -r requirements.txt &amp;&amp; cd ..</pre><button type="button">העתק</button></div>
-      <p>אחר כך מפעילים כרגיל, לפי <a href="#daily">הפעלה יומיומית</a>. הנתונים שלך במסד לא נפגעים בעדכון.</p>
+cd sync &amp;&amp; pip install -r requirements.txt &amp;&amp; cd ..</pre></div>
+      <p>אחר כך מפעילים כרגיל, לפי השלבים ב<a href="#daily">הפעלה יומיומית</a>. הנתונים שלכם במסד לא נפגעים בעדכון.</p>
     </section>
 
-    <footer>הקוד המלא: <code>github.com/NaorShamsian/TradingJournal</code></footer>
+    <footer>הקוד המלא: <span class="en">github.com/NaorShamsian/TradingJournal</span></footer>
   </main>
 </div>
 
 <script>
 document.querySelectorAll('.cmd button').forEach(function (btn) {
   btn.addEventListener('click', function () {
-    var pre = btn.parentElement.querySelector('pre');
+    var pre = btn.closest('.cmd').querySelector('pre');
     var text = pre.innerText;
     var done = function () {
       btn.textContent = 'הועתק';
@@ -387,7 +493,7 @@ document.querySelectorAll('.cmd button').forEach(function (btn) {
       var sel = window.getSelection();
       sel.removeAllRanges();
       sel.addRange(range);
-      btn.textContent = 'סמן והעתק Ctrl+C';
+      btn.textContent = 'סומן, העתיקו עם Ctrl+C';
     };
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) {
