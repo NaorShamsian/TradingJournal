@@ -300,6 +300,12 @@ copy .env.example .env</pre></div>
     <section id="daily">
       <h2>הפעלה יומיומית</h2>
       <p class="sub">בכל פעם שרוצים לעבוד עם היומן.</p>
+      <div class="note tip">
+        <span class="label">הדרך הקלה: לחיצה כפולה על <span class="en">start.bat</span></span>
+        <p>בתיקיית הפרויקט יש קובץ בשם <code>start.bat</code>. לחיצה כפולה עליו פותחת את <span class="en">MT5</span> אם הוא סגור, מפעילה את השרת ואת האתר בחלונות נפרדים, ופותחת את היומן בדפדפן. בהרצה הראשונה הוא גם מתקין את כל הספריות.</p>
+        <p>את החלונות <strong>Server</strong> ו-<strong>Site</strong> שנפתחים לא סוגרים כל זמן העבודה. מספיק למזער אותם.</p>
+      </div>
+      <h3>או ידנית, שלב אחר שלב</h3>
       <ol class="steps">
         <li>
           <h3>פתחו את <span class="en">MetaTrader 5</span></h3>
@@ -422,6 +428,10 @@ npm run dev</pre></div>
       <h2>פתרון תקלות</h2>
       <p class="sub">ההודעה שמופיעה, ומה לעשות.</p>
       <div class="issues">
+        <div class="issue">
+          <div class="msg he">כתוב שהסנכרון נכשל, או שהנתונים לא מתעדכנים</div>
+          <div class="fix">כנראה חלון השרת נסגר. הפעילו שוב את <code>start.bat</code>. הוא מזהה מה כבר פתוח ומפעיל רק את מה שחסר. צריכים להיות פתוחים שלושה דברים: <span class="en">MT5</span>, חלון השרת וחלון האתר. <span class="en">Docker</span> לא נדרש.</div>
+        </div>
         <div class="issue">
           <div class="msg">MetaTrader5 Python library is not installed</div>
           <div class="fix">הריצו <code>pip install -r requirements.txt</code> בתיקייה <code>sync</code>. אם מותקנות כמה גרסאות <span class="en">Python</span>, הגדירו בקובץ <code>backend\.env</code> את <code>PYTHON_PATH</code> עם הנתיב המלא לקובץ <code>python.exe</code>.</div>

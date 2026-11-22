@@ -2,6 +2,8 @@
 
 A premium, modern, and high-fidelity personal trading journal and analytics dashboard designed specifically for day traders executing on **MetaTrader 5 (MT5)**. Inspired by leading analytics platforms like TradeZella, TradesViz, and TraderSync, this local application automatically synchronizes closed trades/deals, compiles them into structured positions in MongoDB, and presents real-time analytics in a fully responsive, SaaS-style React client.
 
+> 🚀 **Quick start (Windows):** after the one-time setup, double-click `start.bat` in the project root. It opens MetaTrader 5, starts the server and the site, and opens the journal in your browser.
+
 > 📖 **User guide (Hebrew):** open [`docs/user-guide.html`](docs/user-guide.html) in your browser for step-by-step setup, connecting an MT5 account, a tour of every page and troubleshooting.
 
 ---
