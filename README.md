@@ -6,6 +6,14 @@ A premium, modern, and high-fidelity personal trading journal and analytics dash
 
 > 📖 **User guide (Hebrew):** open [`docs/user-guide.html`](docs/user-guide.html) in your browser for step-by-step setup, connecting an MT5 account, a tour of every page and troubleshooting.
 
+## 🎬 Demo
+
+![Trading Journal demo: dashboard, trades log, trade replay and calendar](screenshots/demo_preview.webp)
+
+A one-minute walkthrough: performance dashboard, merged vs. per-position trades log, trade replay with the journal review, and the monthly P&L calendar. Shown with demo data.
+
+▶️ **[Watch the full-quality video (MP4)](screenshots/TradingJournal_demo.mp4)**
+
 ---
 
 ## 🏗️ Architecture & System Design
@@ -52,11 +60,6 @@ The application consists of three main components running in a local environment
 
 ### 📋 Interactive Trade Ledger & Multi-Sort Filters
 ![Trades Ledger Screenshot](screenshots/trades_log.png)
-
-### 🎥 Interactive Session Recordings
-
-#### 📊 Pagination & Header Sorting Demo
-![Pagination and Sorting Demo](screenshots/verify_sorting_pagination.webp)
 
 ---
 
