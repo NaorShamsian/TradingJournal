@@ -190,7 +190,7 @@ export const SettingsPage: React.FC = () => {
               <span className="text-xs font-extrabold text-slate-900 dark:text-white block uppercase tracking-wider">
                 {lang === 'he' ? 'חישוב גודל סיכון (R Size)' : 'Allocated 1R Metric Calculation'}
               </span>
-              <p className="text-xs text-slate-555 mt-1 font-semibold">
+              <p className="text-xs text-slate-500 mt-1 font-semibold">
                 {lang === 'he' ? (
                   <span>
                     על בסיס היתרה והסיכון שהגדרת, שווי של **1R** מחושב כעת כ-{' '}
@@ -221,7 +221,7 @@ export const SettingsPage: React.FC = () => {
               {strategies.map((strat, index) => (
                 <span
                   key={strat}
-                  className="px-3 py-1.5 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-border/60 hover:border-slate-350 text-slate-700 dark:text-slate-200 font-bold rounded-xl text-xs flex items-center gap-2"
+                  className="px-3 py-1.5 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-border/60 hover:border-slate-300 text-slate-700 dark:text-slate-200 font-bold rounded-xl text-xs flex items-center gap-2"
                 >
                   {strat}
                   <button
@@ -249,7 +249,7 @@ export const SettingsPage: React.FC = () => {
               <button
                 type="button"
                 onClick={handleAddStrategy}
-                className="px-4 py-2 bg-slate-200 dark:bg-slate-850 hover:bg-slate-300 dark:hover:bg-slate-800 text-slate-800 dark:text-white text-xs font-bold rounded-xl flex items-center gap-1.5"
+                className="px-4 py-2 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-800 text-slate-800 dark:text-white text-xs font-bold rounded-xl flex items-center gap-1.5"
               >
                 <Plus className="h-4 w-4" />
                 {t('addStrategy')}

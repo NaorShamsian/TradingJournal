@@ -210,7 +210,7 @@ export const Trades: React.FC = () => {
         {/* Row 2: Advanced Dropdowns */}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 pt-2 border-t border-slate-200 dark:border-border/50">
           <div>
-            <label className="text-[10px] text-slate-400 dark:text-slate-505 font-bold uppercase tracking-wider block mb-1">{t('symbol')}</label>
+            <label className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider block mb-1">{t('symbol')}</label>
             <input
               type="text"
               placeholder="e.g. NDX100"
@@ -221,7 +221,7 @@ export const Trades: React.FC = () => {
           </div>
 
           <div>
-            <label className="text-[10px] text-slate-400 dark:text-slate-505 font-bold uppercase tracking-wider block mb-1">{t('strategy')}</label>
+            <label className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider block mb-1">{t('strategy')}</label>
             <select
               value={strategy}
               onChange={(e) => { setStrategy(e.target.value); setCurrentPage(1); }}
@@ -235,7 +235,7 @@ export const Trades: React.FC = () => {
           </div>
 
           <div>
-            <label className="text-[10px] text-slate-400 dark:text-slate-505 font-bold uppercase tracking-wider block mb-1">{t('session')}</label>
+            <label className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider block mb-1">{t('session')}</label>
             <select
               value={session}
               onChange={(e) => { setSession(e.target.value); setCurrentPage(1); }}
@@ -250,7 +250,7 @@ export const Trades: React.FC = () => {
           </div>
 
           <div>
-            <label className="text-[10px] text-slate-400 dark:text-slate-555 font-bold uppercase tracking-wider block mb-1">{lang === 'he' ? 'תאריך התחלה' : 'Start Date'}</label>
+            <label className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider block mb-1">{lang === 'he' ? 'תאריך התחלה' : 'Start Date'}</label>
             <input
               type="date"
               value={startDate}
@@ -260,7 +260,7 @@ export const Trades: React.FC = () => {
           </div>
 
           <div>
-            <label className="text-[10px] text-slate-400 dark:text-slate-505 font-bold uppercase tracking-wider block mb-1">{lang === 'he' ? 'מיון' : 'Sort'}</label>
+            <label className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider block mb-1">{lang === 'he' ? 'מיון' : 'Sort'}</label>
             <select
               value={`${sortBy}_${sortOrder}`}
               onChange={(e) => {
@@ -372,7 +372,7 @@ export const Trades: React.FC = () => {
                             {formatDate(trade.closeTime)}
                           </span>
                         </div>
-                        <div className="text-[10px] text-slate-455 font-bold mt-1">
+                        <div className="text-[10px] text-slate-400 font-bold mt-1">
                           {formatTime(trade.openTime)}–{formatTime(trade.closeTime)} • {trade.volume.toFixed(2)} Lots
                           {trade.isGrouped && (
                             <span className="text-primary">
@@ -395,7 +395,7 @@ export const Trades: React.FC = () => {
                       </div>
 
                       {/* Profit and R:R Display */}
-                      <div className="flex items-center justify-between border-t border-b border-slate-250/20 dark:border-border/30 py-3">
+                      <div className="flex items-center justify-between border-t border-b border-slate-200/20 dark:border-border/30 py-3">
                         <div>
                           <span className="block text-[9px] text-slate-400 font-bold uppercase">{lang === 'he' ? 'רווח/הפסד נקי' : 'Net P&L'}</span>
                           <span className={`text-xl font-black ${pnlText(profitVal)}`}>
@@ -413,10 +413,10 @@ export const Trades: React.FC = () => {
                       {/* Sessions & Tags */}
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex flex-wrap gap-1">
-                          <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 border border-slate-200/60 dark:border-border/60 text-slate-600 dark:text-slate-350 text-[10px] font-bold rounded-lg">
+                          <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 border border-slate-200/60 dark:border-border/60 text-slate-600 dark:text-slate-300 text-[10px] font-bold rounded-lg">
                             {trade.session}
                           </span>
-                          <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 border border-slate-200/60 dark:border-border/60 text-slate-600 dark:text-slate-350 text-[10px] font-bold rounded-lg max-w-[90px] truncate">
+                          <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 border border-slate-200/60 dark:border-border/60 text-slate-600 dark:text-slate-300 text-[10px] font-bold rounded-lg max-w-[90px] truncate">
                             {trade.strategy}
                           </span>
                         </div>
@@ -471,13 +471,13 @@ export const Trades: React.FC = () => {
             <span className="text-xs text-slate-500 dark:text-slate-400">
               {lang === 'he' ? (
                 <span>
-                  מציג <span className="font-bold text-slate-850 dark:text-white">{trades.length}</span> מתוך{' '}
-                  <span className="font-bold text-slate-850 dark:text-white">{totalCount}</span> עסקאות
+                  מציג <span className="font-bold text-slate-800 dark:text-white">{trades.length}</span> מתוך{' '}
+                  <span className="font-bold text-slate-800 dark:text-white">{totalCount}</span> עסקאות
                 </span>
               ) : (
                 <span>
-                  Showing <span className="font-bold text-slate-850 dark:text-white">{trades.length}</span> of{' '}
-                  <span className="font-bold text-slate-850 dark:text-white">{totalCount}</span> trades
+                  Showing <span className="font-bold text-slate-800 dark:text-white">{trades.length}</span> of{' '}
+                  <span className="font-bold text-slate-800 dark:text-white">{totalCount}</span> trades
                 </span>
               )}
             </span>

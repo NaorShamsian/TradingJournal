@@ -301,12 +301,12 @@ export const TradeDetails: React.FC = () => {
             <span className="text-2xl font-black text-slate-900 dark:text-white">{trade.symbol}</span>
             <span className={`px-2.5 py-0.5 rounded-lg text-xs font-black border ${
               trade.type === 'BUY' 
-                ? 'bg-blue-500/10 border-blue-500/30 text-blue-505' 
-                : 'bg-orange-500/10 border-orange-500/30 text-orange-505'
+                ? 'bg-blue-500/10 border-blue-500/30 text-blue-500' 
+                : 'bg-orange-500/10 border-orange-500/30 text-orange-500'
             }`}>
               {trade.type}
             </span>
-            <span className="text-sm text-slate-600 dark:text-slate-350 font-mono font-bold">{trade.volume.toFixed(2)} Lots</span>
+            <span className="text-sm text-slate-600 dark:text-slate-300 font-mono font-bold">{trade.volume.toFixed(2)} Lots</span>
             <OutcomeBadge netProfit={trade.netProfit} lang={lang} />
             {trade.isGrouped && (
               <span className="px-2 py-0.5 rounded-lg text-[11px] font-black bg-primary/10 border border-primary/30 text-primary">
@@ -315,7 +315,7 @@ export const TradeDetails: React.FC = () => {
             )}
           </div>
 
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs text-slate-550 dark:text-slate-400">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs text-slate-500 dark:text-slate-400">
             <span className="flex items-center gap-1 font-semibold">
               <Calendar className="h-3.5 w-3.5" />
               {formatDateTime(trade.openTime)} → {formatDateTime(trade.closeTime)}
@@ -334,7 +334,7 @@ export const TradeDetails: React.FC = () => {
             {isWin ? '+' : ''}{formatCurrency(trade.netProfit, currency)}
           </h2>
           <div className="flex items-center md:justify-end gap-2 text-xs mt-1">
-            <span className="text-slate-450 font-bold">MT5 Position ID:</span>
+            <span className="text-slate-400 font-bold">MT5 Position ID:</span>
             <span className="font-mono text-slate-600 dark:text-slate-300">{trade.positionId}</span>
           </div>
         </div>
@@ -427,7 +427,7 @@ export const TradeDetails: React.FC = () => {
             MT5 Terminal Stats
           </h3>
           
-          <div className="space-y-4 text-xs font-semibold text-slate-650 dark:text-slate-350">
+          <div className="space-y-4 text-xs font-semibold text-slate-600 dark:text-slate-300">
             <div className="flex justify-between">
               <span className="text-slate-400">{t('entryPrice')}</span>
               <span className="font-mono text-slate-900 dark:text-white font-extrabold">{trade.entryPrice.toFixed(5)}</span>
@@ -438,11 +438,11 @@ export const TradeDetails: React.FC = () => {
             </div>
             <div className="flex justify-between border-t border-slate-200 dark:border-border/30 pt-2.5">
               <span className="text-slate-400">Stop Loss (SL)</span>
-              <span className="font-mono text-slate-750 dark:text-slate-300">{trade.stopLoss ? trade.stopLoss.toFixed(5) : 'None'}</span>
+              <span className="font-mono text-slate-700 dark:text-slate-300">{trade.stopLoss ? trade.stopLoss.toFixed(5) : 'None'}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-slate-400">Take Profit (TP)</span>
-              <span className="font-mono text-slate-755 dark:text-slate-300">{trade.takeProfit ? trade.takeProfit.toFixed(5) : 'None'}</span>
+              <span className="font-mono text-slate-700 dark:text-slate-300">{trade.takeProfit ? trade.takeProfit.toFixed(5) : 'None'}</span>
             </div>
             <div className="flex justify-between border-t border-slate-200 dark:border-border/30 pt-2.5">
               <span className="text-slate-400">{lang === 'he' ? 'רווח גולמי' : 'Gross Profit'}</span>
@@ -452,11 +452,11 @@ export const TradeDetails: React.FC = () => {
             </div>
             <div className="flex justify-between">
               <span className="text-slate-400">Commission</span>
-              <span className="font-mono text-slate-700 dark:text-slate-305">{formatCurrency(trade.commission, currency)}</span>
+              <span className="font-mono text-slate-700 dark:text-slate-300">{formatCurrency(trade.commission, currency)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-slate-400">Swap</span>
-              <span className="font-mono text-slate-700 dark:text-slate-305">{formatCurrency(trade.swap, currency)}</span>
+              <span className="font-mono text-slate-700 dark:text-slate-300">{formatCurrency(trade.swap, currency)}</span>
             </div>
             <div className="flex justify-between border-t border-slate-200 dark:border-border/30 pt-2.5">
               <span className="text-slate-400">{lang === 'he' ? 'רווח יחסי (R:R)' : 'Calculated R:R'}</span>
@@ -479,7 +479,7 @@ export const TradeDetails: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Strategy Dropdown */}
               <div>
-                <label className="text-xs font-bold text-slate-550 dark:text-slate-400 block mb-1.5">
+                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 block mb-1.5">
                   {t('strategy')}
                 </label>
                 <select
@@ -496,7 +496,7 @@ export const TradeDetails: React.FC = () => {
 
               {/* Session Dropdown */}
               <div>
-                <label className="text-xs font-bold text-slate-550 dark:text-slate-400 block mb-1.5">
+                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 block mb-1.5">
                   {t('session')}
                 </label>
                 <select
@@ -513,7 +513,7 @@ export const TradeDetails: React.FC = () => {
 
               {/* Emotion */}
               <div>
-                <label className="text-xs font-bold text-slate-555 dark:text-slate-400 block mb-1.5">
+                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 block mb-1.5">
                   {t('emotion')}
                 </label>
                 <div className="relative">
@@ -530,7 +530,7 @@ export const TradeDetails: React.FC = () => {
 
               {/* Self Rating */}
               <div>
-                <label className="text-xs font-bold text-slate-550 dark:text-slate-400 block mb-1.5">
+                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 block mb-1.5">
                   {t('selfRating')} (1 - 10)
                 </label>
                 <select
@@ -587,7 +587,7 @@ export const TradeDetails: React.FC = () => {
                       className="px-2 py-0.5 bg-danger/20 text-danger font-bold rounded-md text-[10px] flex items-center gap-1.5"
                     >
                       {tag}
-                      <button type="button" onClick={() => removeMistakeTag(tag)} className="hover:text-slate-955 dark:hover:text-white">
+                      <button type="button" onClick={() => removeMistakeTag(tag)} className="hover:text-slate-900 dark:hover:text-white">
                         <X className="h-3 w-3" />
                       </button>
                     </span>
@@ -608,7 +608,7 @@ export const TradeDetails: React.FC = () => {
                   <button
                     type="button"
                     onClick={addMistakeTag}
-                    className="px-3 py-1.5 bg-slate-200 dark:bg-slate-850 border border-slate-300 dark:border-border hover:bg-slate-350 dark:hover:bg-slate-700 text-slate-800 dark:text-white text-xs font-bold rounded-lg"
+                    className="px-3 py-1.5 bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-border hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-white text-xs font-bold rounded-lg"
                   >
                     {lang === 'he' ? 'הוסף' : 'Add'}
                   </button>
@@ -627,7 +627,7 @@ export const TradeDetails: React.FC = () => {
                   onChange={(e) => setEntryReason(e.target.value)}
                   rows={2}
                   placeholder={lang === 'he' ? 'תאר את הטריגר המבני שלך לכניסה לעסקה...' : 'Describe your structural entry triggers...'}
-                  className="w-full px-3.5 py-2.5 bg-slate-105 dark:bg-slate-900 border border-slate-200 dark:border-border rounded-xl text-sm focus:outline-none focus:border-primary text-slate-800 dark:text-slate-200 placeholder-slate-500"
+                  className="w-full px-3.5 py-2.5 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-border rounded-xl text-sm focus:outline-none focus:border-primary text-slate-800 dark:text-slate-200 placeholder-slate-500"
                 />
               </div>
 
@@ -640,7 +640,7 @@ export const TradeDetails: React.FC = () => {
                   onChange={(e) => setExitReason(e.target.value)}
                   rows={2}
                   placeholder={lang === 'he' ? 'תאר מדוע העסקה נסגרה...' : 'Describe how or why the trade was closed...'}
-                  className="w-full px-3.5 py-2.5 bg-slate-105 dark:bg-slate-900 border border-slate-200 dark:border-border rounded-xl text-sm focus:outline-none focus:border-primary text-slate-800 dark:text-slate-200 placeholder-slate-500"
+                  className="w-full px-3.5 py-2.5 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-border rounded-xl text-sm focus:outline-none focus:border-primary text-slate-800 dark:text-slate-200 placeholder-slate-500"
                 />
               </div>
 
@@ -653,7 +653,7 @@ export const TradeDetails: React.FC = () => {
                   onChange={(e) => setNotes(e.target.value)}
                   rows={3}
                   placeholder={lang === 'he' ? 'לקחים שנלמדו מהעסקה, ניתוח פסיכולוגי או התנהגות שוק...' : 'Lessons learned, details of price action, or psychology review...'}
-                  className="w-full px-3.5 py-2.5 bg-slate-105 dark:bg-slate-900 border border-slate-200 dark:border-border rounded-xl text-sm focus:outline-none focus:border-primary text-slate-800 dark:text-slate-200 placeholder-slate-500"
+                  className="w-full px-3.5 py-2.5 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-border rounded-xl text-sm focus:outline-none focus:border-primary text-slate-800 dark:text-slate-200 placeholder-slate-500"
                 />
               </div>
             </div>
@@ -830,7 +830,7 @@ export const TradeDetails: React.FC = () => {
             <h3 className="text-sm md:text-base font-bold text-slate-900 dark:text-white uppercase tracking-wider">{t('clipboardDetected')}</h3>
             <p className="text-slate-500 dark:text-slate-400 text-xs">{t('assignSlot')}</p>
             
-            <div className="border border-border/40 rounded-xl overflow-hidden max-h-40 bg-slate-105 dark:bg-slate-95">
+            <div className="border border-border/40 rounded-xl overflow-hidden max-h-40 bg-slate-100 dark:bg-slate-50">
               <img src={pastedImage} alt="Pasted clipboard preview" className="w-full h-full object-contain" />
             </div>
 
@@ -947,7 +947,7 @@ export const TradeDetails: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowResizeModal(null)}
-                className="px-4 py-2 bg-slate-100 dark:bg-slate-850 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-xl transition"
+                className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-xl transition"
               >
                 {t('cancel')}
               </button>

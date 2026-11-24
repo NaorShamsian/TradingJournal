@@ -33,6 +33,25 @@ import { formatCurrency, formatPercent, formatDate, calculateTradeRR, formatRR }
 import { MergedBadge, pnlText } from '../components/Outcome';
 import { useThemeLang } from '../context/ThemeLangContext';
 
+type Timeframe = 'day' | 'week' | 'month' | 'quarter' | 'year' | 'all';
+
+const TF_DAYS: Record<string, number> = { week: 7, month: 30, quarter: 90, year: 365 };
+
+/**
+ * Start of the selected range in ms, or null for "all".
+ * Trade times are stored in MT5 broker server time labelled as UTC, and the
+ * broker's clock follows the trader's local day closely, so "today" starts at
+ * the local calendar date's midnight expressed in that same UTC-labelled frame.
+ */
+const rangeStartMs = (tf: Timeframe): number | null => {
+  if (tf === 'all') return null;
+  if (tf === 'day') {
+    const now = new Date();
+    return Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  }
+  return Date.now() - TF_DAYS[tf] * 86400000;
+};
+
 export const Dashboard: React.FC = () => {
   const { t, lang, theme } = useThemeLang();
   const [equityData, setEquityData] = useState<EquityCurvePoint[]>([]);
@@ -58,7 +77,7 @@ export const Dashboard: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   // Timeframe selector state
-  const [timeframe, setTimeframe] = useState<'week' | 'month' | 'quarter' | 'year' | 'all'>('all');
+  const [timeframe, setTimeframe] = useState<Timeframe>('all');
 
   // Paginated trades states for Dashboard
   const [tradesPage, setTradesPage] = useState(1);
@@ -96,18 +115,8 @@ export const Dashboard: React.FC = () => {
   const fetchRecentTrades = async () => {
     try {
       setTradesLoading(true);
-      let startDateParam: string | undefined = undefined;
-      if (timeframe !== 'all') {
-        const now = new Date();
-        let days = 7;
-        if (timeframe === 'week') days = 7;
-        else if (timeframe === 'month') days = 30;
-        else if (timeframe === 'quarter') days = 90;
-        else if (timeframe === 'year') days = 365;
-        
-        const startDateObj = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
-        startDateParam = startDateObj.toISOString();
-      }
+      const startMs = rangeStartMs(timeframe);
+      const startDateParam: string | undefined = startMs === null ? undefined : new Date(startMs).toISOString();
       
       const tradesRes = await api.getTrades({
         page: tradesPage,
@@ -184,14 +193,14 @@ export const Dashboard: React.FC = () => {
   // The account balance at any moment = all deposits/withdrawals up to then +
   // all closed-trade P&L up to then (both come from MT5). This gives the real
   // balance at which the selected interval opened and closed.
-  const TF_DAYS: Record<string, number> = { week: 7, month: 30, quarter: 90, year: 365 };
   const nowMs = Date.now();
   const allTradePts = equityData.filter(pt => pt.tradeIndex > 0);
   const tsOf = (d: string) => new Date(d).getTime();
   const opsWithTs = balanceOps.map(o => ({ ...o, ts: tsOf(o.time) }));
-  const intervalStartMs = timeframe === 'all'
+  const rangeStart = rangeStartMs(timeframe);
+  const intervalStartMs = rangeStart === null
     ? (allTradePts.length ? tsOf(allTradePts[0].date) - 1 : nowMs)
-    : nowMs - TF_DAYS[timeframe] * 86400000;
+    : rangeStart;
 
   const filteredEquityRaw = allTradePts.filter(pt => tsOf(pt.date) > intervalStartMs);
   const pnlBeforeInterval = allTradePts.filter(pt => tsOf(pt.date) <= intervalStartMs).reduce((s, pt) => s + pt.netProfit, 0);
@@ -388,7 +397,7 @@ export const Dashboard: React.FC = () => {
         
         {/* Timeframe Regulators */}
         <div className="flex items-center gap-1.5 p-1 bg-slate-200/50 dark:bg-slate-900 border border-slate-200 dark:border-border/60 rounded-xl w-fit">
-          {(['week', 'month', 'quarter', 'year', 'all'] as const).map(tf => (
+          {(['day', 'week', 'month', 'quarter', 'year', 'all'] as const).map(tf => (
             <button
               key={tf}
               onClick={() => setTimeframe(tf)}
@@ -398,6 +407,7 @@ export const Dashboard: React.FC = () => {
                   : 'text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800'
               }`}
             >
+              {tf === 'day' && (lang === 'he' ? 'יום' : 'Day')}
               {tf === 'week' && (lang === 'he' ? 'שבוע' : 'Week')}
               {tf === 'month' && (lang === 'he' ? 'חודש' : 'Month')}
               {tf === 'quarter' && (lang === 'he' ? 'רבעון' : 'Quarter')}
@@ -517,7 +527,7 @@ export const Dashboard: React.FC = () => {
             </span>
             <p className="text-xs md:text-sm text-slate-700 dark:text-slate-200 font-bold mt-0.5">
               1R = <span className="text-primary font-black">{formatCurrency(riskAmount, currency)}</span>
-              <span className="text-[10px] text-slate-455 font-semibold ml-1 mr-1">
+              <span className="text-[10px] text-slate-400 font-semibold ml-1 mr-1">
                 ({riskPercent}% {lang === 'he' ? 'מיתרת הבסיס של החשבון' : 'of account base balance'})
               </span>
             </p>
@@ -536,7 +546,7 @@ export const Dashboard: React.FC = () => {
         {/* Total Net Profit */}
         <div className="p-5 rounded-2xl flex flex-col justify-between border border-slate-200 dark:border-border bg-white dark:bg-card shadow-sm">
           <div className="flex justify-between items-start">
-            <span className="text-xs md:text-sm text-slate-550 dark:text-slate-400 font-bold">{t('netPnl')}</span>
+            <span className="text-xs md:text-sm text-slate-500 dark:text-slate-400 font-bold">{t('netPnl')}</span>
             <div className={`p-1.5 rounded-lg border ${ calculatedNetPnL >= 0 ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500' : 'bg-rose-500/10 border-rose-500/30 text-rose-500'}`}>
               <DollarSign className="h-4.5 w-4.5" />
             </div>
@@ -554,7 +564,7 @@ export const Dashboard: React.FC = () => {
         {/* Win Rate */}
         <div className="p-5 rounded-2xl flex flex-col justify-between border border-slate-200 dark:border-border bg-white dark:bg-card shadow-sm">
           <div className="flex justify-between items-start">
-            <span className="text-xs md:text-sm text-slate-550 dark:text-slate-400 font-bold">{t('winRate')}</span>
+            <span className="text-xs md:text-sm text-slate-500 dark:text-slate-400 font-bold">{t('winRate')}</span>
             <div className="p-1.5 bg-primary/10 border border-primary/30 text-primary rounded-lg">
               <Percent className="h-4.5 w-4.5" />
             </div>
@@ -576,7 +586,7 @@ export const Dashboard: React.FC = () => {
         {/* Profit Factor */}
         <div className="p-5 rounded-2xl flex flex-col justify-between border border-slate-200 dark:border-border bg-white dark:bg-card shadow-sm">
           <div className="flex justify-between items-start">
-            <span className="text-xs md:text-sm text-slate-555 dark:text-slate-400 font-bold">{t('profitFactor')}</span>
+            <span className="text-xs md:text-sm text-slate-500 dark:text-slate-400 font-bold">{t('profitFactor')}</span>
             <div className="p-1.5 bg-yellow-500/10 border border-yellow-500/30 text-yellow-500 rounded-lg">
               <Calculator className="h-4.5 w-4.5" />
             </div>
@@ -585,7 +595,7 @@ export const Dashboard: React.FC = () => {
             <h2 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white">
               {calculatedProfitFactor ? calculatedProfitFactor.toFixed(2) : '0.00'}
             </h2>
-            <p className="text-[10px] md:text-xs text-slate-455 font-semibold mt-1">
+            <p className="text-[10px] md:text-xs text-slate-400 font-semibold mt-1">
               {lang === 'he' ? 'יחס רווח גולמי מול הפסד' : 'Ratio of gross wins vs losses'}
             </p>
           </div>
@@ -594,7 +604,7 @@ export const Dashboard: React.FC = () => {
         {/* Total Trades */}
         <div className="p-5 rounded-2xl flex flex-col justify-between border border-slate-200 dark:border-border bg-white dark:bg-card shadow-sm">
           <div className="flex justify-between items-start">
-            <span className="text-xs md:text-sm text-slate-550 dark:text-slate-400 font-bold">{t('totalTrades')}</span>
+            <span className="text-xs md:text-sm text-slate-500 dark:text-slate-400 font-bold">{t('totalTrades')}</span>
             <div className="p-1.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-border text-slate-600 dark:text-slate-300 rounded-lg">
               <Calendar className="h-4.5 w-4.5" />
             </div>
@@ -603,7 +613,7 @@ export const Dashboard: React.FC = () => {
             <h2 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white">
               {totalTradesCount}
             </h2>
-            <p className="text-[10px] md:text-xs text-slate-455 font-semibold mt-1">
+            <p className="text-[10px] md:text-xs text-slate-400 font-semibold mt-1">
               {lang === 'he' ? 'עסקאות (פוזיציות צמודות אוחדו)' : 'Trades (adjacent positions merged)'}
             </p>
           </div>
@@ -622,7 +632,7 @@ export const Dashboard: React.FC = () => {
         </div>
         <div>
           <span className="text-[10px] md:text-xs text-slate-500 dark:text-slate-400 uppercase tracking-wider font-bold">{t('avgRR')}</span>
-          <p className="text-sm md:text-base font-black text-slate-850 dark:text-slate-200 mt-0.5">
+          <p className="text-sm md:text-base font-black text-slate-800 dark:text-slate-200 mt-0.5">
             {averageCalculatedRR >= 0 ? '+' : ''}{averageCalculatedRR.toFixed(2)}R
           </p>
         </div>
@@ -971,16 +981,16 @@ export const Dashboard: React.FC = () => {
               {/* Pagination Bar */}
               {tradesTotalPages > 1 && (
                 <div className="flex items-center justify-between px-6 py-4 bg-white dark:bg-card border-t border-slate-200 dark:border-border">
-                  <span className="text-xs text-slate-550 dark:text-slate-400">
+                  <span className="text-xs text-slate-500 dark:text-slate-400">
                     {lang === 'he' ? (
                       <span>
-                        מציג <span className="font-bold text-slate-850 dark:text-white">{recentTrades.length}</span> מתוך{' '}
-                        <span className="font-bold text-slate-850 dark:text-white">{tradesTotalCount}</span> עסקאות
+                        מציג <span className="font-bold text-slate-800 dark:text-white">{recentTrades.length}</span> מתוך{' '}
+                        <span className="font-bold text-slate-800 dark:text-white">{tradesTotalCount}</span> עסקאות
                       </span>
                     ) : (
                       <span>
-                        Showing <span className="font-bold text-slate-850 dark:text-white">{recentTrades.length}</span> of{' '}
-                        <span className="font-bold text-slate-850 dark:text-white">{tradesTotalCount}</span> trades
+                        Showing <span className="font-bold text-slate-800 dark:text-white">{recentTrades.length}</span> of{' '}
+                        <span className="font-bold text-slate-800 dark:text-white">{tradesTotalCount}</span> trades
                       </span>
                     )}
                   </span>

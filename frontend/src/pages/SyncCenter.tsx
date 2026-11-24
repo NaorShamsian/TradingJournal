@@ -191,7 +191,7 @@ export const SyncCenter: React.FC = () => {
           <div className="glass-panel p-6 rounded-2xl flex flex-col justify-between bg-white dark:bg-card border-danger/20 dark:border-danger/30 flex-1">
             <div>
               <h3 className="text-sm font-bold text-danger uppercase tracking-wider block">{lang === 'he' ? 'איפוס יומן עסקאות' : 'Reset Trade Ledger'}</h3>
-              <p className="text-xs text-slate-550 dark:text-slate-400 mt-1 font-semibold">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-semibold">
                 {lang === 'he'
                   ? 'מחיקת כל העסקאות במסד הנתונים לצמיתות ואיפוס סטטוס הסנכרון כדי להתחיל סנכרון נקי מחדש.'
                   : 'Permanently deletes all trade records from MongoDB Atlas and clears the sync tracker progress state.'}

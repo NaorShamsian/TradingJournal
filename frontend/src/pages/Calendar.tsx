@@ -338,7 +338,7 @@ export const Calendar: React.FC = () => {
                           }`}>
                             {t.type}
                           </span>
-                          <span className="text-xs text-slate-550 font-mono font-bold">{t.volume.toFixed(2)} lot</span>
+                          <span className="text-xs text-slate-500 font-mono font-bold">{t.volume.toFixed(2)} lot</span>
                         </div>
                         <div className="text-[10px] text-slate-500 mt-1 flex gap-2 font-semibold">
                           <span>Entry: {t.entryPrice.toFixed(5)}</span>

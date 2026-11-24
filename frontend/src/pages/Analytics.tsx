@@ -159,7 +159,7 @@ export const Analytics: React.FC = () => {
         <div className="glass-panel p-5 rounded-2xl space-y-4 bg-white dark:bg-card border-slate-200 dark:border-border">
           <div>
             <h3 className="text-sm md:text-base font-extrabold text-slate-900 dark:text-white">{lang === 'he' ? 'רווחיות לפי אסטרטגיה' : 'Profitability by Strategy'}</h3>
-            <span className="text-xs text-slate-455">{lang === 'he' ? 'רווח/הפסד מצטבר ברוטו' : 'Cumulative Net P&L per strategy'}</span>
+            <span className="text-xs text-slate-400">{lang === 'he' ? 'רווח/הפסד מצטבר ברוטו' : 'Cumulative Net P&L per strategy'}</span>
           </div>
           
           <div className="h-64 w-full">
@@ -175,13 +175,11 @@ export const Analytics: React.FC = () => {
                     itemStyle={{ color: tooltipText, fontSize: '12px' }}
                     formatter={(value: any) => [formatCurrency(Number(value), currency), 'Net P&L']}
                   />
-                  <Bar 
-                    dataKey="netProfit" 
-                    radius={[4, 4, 0, 0]}
-                    children={strategyStats.map((entry, idx) => (
-                      <rect key={`strat-${idx}`} fill={entry.netProfit >= 0 ? '#10b981' : '#ef4444'} />
+                  <Bar dataKey="netProfit" radius={[4, 4, 0, 0]}>
+                    {strategyStats.map((entry, idx) => (
+                      <Cell key={`strat-${idx}`} fill={entry.netProfit >= 0 ? '#10b981' : '#ef4444'} />
                     ))}
-                  />
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -194,7 +192,7 @@ export const Analytics: React.FC = () => {
         <div className="glass-panel p-5 rounded-2xl space-y-4 bg-white dark:bg-card border-slate-200 dark:border-border">
           <div>
             <h3 className="text-sm md:text-base font-extrabold text-slate-900 dark:text-white">{lang === 'he' ? 'אחוז הצלחה לפי אסטרטגיה' : 'Win Rate by Strategy'}</h3>
-            <span className="text-xs text-slate-455">{lang === 'he' ? 'שיעור הצלחה באחוזים' : 'Win percentage ratio'}</span>
+            <span className="text-xs text-slate-400">{lang === 'he' ? 'שיעור הצלחה באחוזים' : 'Win percentage ratio'}</span>
           </div>
 
           <div className="h-64 w-full">
@@ -227,7 +225,7 @@ export const Analytics: React.FC = () => {
         <div className="glass-panel p-5 rounded-2xl space-y-4 bg-white dark:bg-card border-slate-200 dark:border-border">
           <div>
             <h3 className="text-sm md:text-base font-extrabold text-slate-900 dark:text-white">{lang === 'he' ? 'רווחיות לפי סשנים (Session)' : 'PnL by Trading Session'}</h3>
-            <span className="text-xs text-slate-455">{lang === 'he' ? 'פילוח ביצועים לפי שעות השוק' : 'Performance by market hours'}</span>
+            <span className="text-xs text-slate-400">{lang === 'he' ? 'פילוח ביצועים לפי שעות השוק' : 'Performance by market hours'}</span>
           </div>
 
           <div className="h-64 w-full">
@@ -243,13 +241,11 @@ export const Analytics: React.FC = () => {
                     itemStyle={{ color: tooltipText, fontSize: '12px' }}
                     formatter={(value: any) => [formatCurrency(Number(value), currency), 'Net P&L']}
                   />
-                  <Bar 
-                    dataKey="netProfit" 
-                    radius={[4, 4, 0, 0]}
-                    children={sessionStats.map((entry, idx) => (
-                      <rect key={`sess-${idx}`} fill={entry.netProfit >= 0 ? '#10b981' : '#ef4444'} />
+                  <Bar dataKey="netProfit" radius={[4, 4, 0, 0]}>
+                    {sessionStats.map((entry, idx) => (
+                      <Cell key={`sess-${idx}`} fill={entry.netProfit >= 0 ? '#10b981' : '#ef4444'} />
                     ))}
-                  />
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -262,7 +258,7 @@ export const Analytics: React.FC = () => {
         <div className="glass-panel p-5 rounded-2xl space-y-4 bg-white dark:bg-card border-slate-200 dark:border-border">
           <div>
             <h3 className="text-sm md:text-base font-extrabold text-slate-900 dark:text-white">{lang === 'he' ? 'ניתוח פסיכולוגי וטעויות משמעת' : 'Mistakes Behavioral Review'}</h3>
-            <span className="text-xs text-slate-455">{lang === 'he' ? 'פילוח עלות כספית לפי סוג טעות' : 'Capital lost by bad disciplines'}</span>
+            <span className="text-xs text-slate-400">{lang === 'he' ? 'פילוח עלות כספית לפי סוג טעות' : 'Capital lost by bad disciplines'}</span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-64">

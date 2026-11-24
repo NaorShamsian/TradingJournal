@@ -159,7 +159,7 @@ export const SidebarLayout: React.FC<SidebarLayoutProps> = ({ children }) => {
   const activeAccount = accounts.find(acc => acc.isActive);
 
   return (
-    <div className="flex min-h-screen bg-background text-slate-800 dark:text-slate-100 font-sans">
+    <div className="flex min-h-screen bg-slate-50 dark:bg-background text-slate-800 dark:text-slate-100 font-sans">
       
       {/* Sidebar (Desktop View) */}
       <aside className={`hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 bg-white dark:bg-card border-r border-slate-200 dark:border-border z-20 ${
@@ -216,7 +216,7 @@ export const SidebarLayout: React.FC<SidebarLayoutProps> = ({ children }) => {
           {/* Active MT5 Tracker Account Status Card */}
           <div 
             onClick={() => setIsSelectorOpen(!isSelectorOpen)}
-            className="flex items-center justify-between p-2 hover:bg-slate-200/55 dark:hover:bg-slate-850 rounded-xl cursor-pointer transition select-none"
+            className="flex items-center justify-between p-2 hover:bg-slate-200/55 dark:hover:bg-slate-800 rounded-xl cursor-pointer transition select-none"
           >
             <div className="flex items-center gap-3 min-w-0 flex-1">
               {activeAccount ? (
@@ -238,7 +238,7 @@ export const SidebarLayout: React.FC<SidebarLayoutProps> = ({ children }) => {
                         {lang === 'he' ? 'פרופיל פעיל' : 'Active Profile'}
                       </span>
                     </div>
-                    <p className="text-[11px] font-extrabold text-slate-850 dark:text-white truncate mt-0.5">
+                    <p className="text-[11px] font-extrabold text-slate-800 dark:text-white truncate mt-0.5">
                       {activeAccount.name || `Account ${activeAccount.login}`}
                     </p>
                     <p className="text-[9px] text-slate-400 font-mono mt-0.5 truncate">
@@ -270,7 +270,7 @@ export const SidebarLayout: React.FC<SidebarLayoutProps> = ({ children }) => {
               className="absolute bottom-16 left-4 right-4 z-50 bg-white dark:bg-slate-900 border border-slate-200 dark:border-border rounded-xl shadow-2xl p-2.5 space-y-1.5 animate-fade-in"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="text-[10px] text-slate-400 dark:text-slate-505 font-bold uppercase px-2 py-1 tracking-wider border-b border-slate-100 dark:border-border/30 mb-1 flex items-center justify-between">
+              <div className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase px-2 py-1 tracking-wider border-b border-slate-100 dark:border-border/30 mb-1 flex items-center justify-between">
                 <span>{lang === 'he' ? 'בחר פרופיל חשבון' : 'SELECT ACCOUNT PROFILE'}</span>
                 <button 
                   onClick={() => setIsSelectorOpen(false)}
@@ -467,7 +467,7 @@ export const SidebarLayout: React.FC<SidebarLayoutProps> = ({ children }) => {
           <div className="bg-white dark:bg-card border border-slate-200 dark:border-border p-6 rounded-2xl w-full max-w-md shadow-2xl relative text-slate-800 dark:text-slate-100">
             <button 
               onClick={() => setIsModalOpen(false)}
-              className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-slate-650 dark:hover:text-white rounded-lg transition"
+              className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-lg transition"
             >
               <X className="h-4.5 w-4.5" />
             </button>
@@ -476,7 +476,7 @@ export const SidebarLayout: React.FC<SidebarLayoutProps> = ({ children }) => {
               <span>{lang === 'he' ? 'פרטי התחברות לשרת MT5' : 'MT5 Connection Details'}</span>
             </h3>
 
-            <form onSubmit={handleCreateAccount} className="space-y-3.5 text-xs text-slate-700 dark:text-slate-350 font-bold">
+            <form onSubmit={handleCreateAccount} className="space-y-3.5 text-xs text-slate-700 dark:text-slate-300 font-bold">
               <div>
                 <label className="block mb-1 text-[10px] uppercase text-slate-400 tracking-wider">
                   {lang === 'he' ? 'תיאור / שם החשבון' : 'Account Name (Description)'}
