@@ -5,6 +5,7 @@ import MT5Account from '../models/MT5Account';
 import Trade from '../models/Trade';
 import BalanceOperation from '../models/BalanceOperation';
 import { runMT5Sync } from '../services/mt5Sync';
+import { invalidateTradeCache } from '../services/tradeUnits';
 
 // Never send stored MT5 passwords back to the browser
 const toPublic = (acc: any) => {
@@ -224,6 +225,7 @@ export const deleteAccount = async (req: Request, res: Response) => {
     const deleteTradesResult = await Trade.deleteMany({ accountNumber: String(account.login) });
     console.log(`Deleted ${deleteTradesResult.deletedCount} trades associated with account #${account.login}`);
     await BalanceOperation.deleteMany({ accountNumber: String(account.login) });
+    invalidateTradeCache();
 
     const loginId = account.login;
     const wasActive = account.isActive;

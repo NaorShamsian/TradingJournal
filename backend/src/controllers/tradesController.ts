@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import Trade from '../models/Trade';
 import SyncStatus from '../models/SyncStatus';
 import MT5Account from '../models/MT5Account';
-import { loadTradeUnits } from '../services/tradeUnits';
+import { loadTradeUnits, invalidateTradeCache } from '../services/tradeUnits';
 import { findGroupOf } from '../utils/tradeGrouping';
 
 // GET /api/trades
@@ -63,7 +63,18 @@ export const getTrades = async (req: Request, res: Response) => {
     const pageNum = Math.max(1, parseInt(page as string, 10) || 1);
     const limitNum = Math.max(1, parseInt(limit as string, 10) || 50);
     const total = units.length;
-    const trades = units.slice((pageNum - 1) * limitNum, pageNum * limitNum);
+    // Screenshots are served by a separate, browser-cached endpoint instead of
+    // being embedded (base64) in every list response.
+    const base = `${req.protocol}://${req.get('host')}/api/trades`;
+    const trades = units.slice((pageNum - 1) * limitNum, pageNum * limitNum).map((u: any) => {
+      const src = u.journalSourceId || u._id;
+      const v = u.updatedAt ? `?v=${+new Date(u.updatedAt)}` : '';
+      return {
+        ...u,
+        screenshotBeforeUrl: u.hasScreenshotBefore ? `${base}/${src}/screenshot/before${v}` : undefined,
+        screenshotAfterUrl: u.hasScreenshotAfter ? `${base}/${src}/screenshot/after${v}` : undefined,
+      };
+    });
 
     res.json({
       trades,
@@ -87,6 +98,7 @@ export const getTradeById = async (req: Request, res: Response) => {
     if (!trade) {
       return res.status(404).json({ message: 'Trade not found' });
     }
+    invalidateTradeCache(); // journal may have been copied to other deals above
     res.json(trade);
   } catch (error: any) {
     res.status(500).json({ message: 'Error retrieving trade details', error: error.message });
@@ -96,7 +108,7 @@ export const getTradeById = async (req: Request, res: Response) => {
 // GET /api/trades/:id/group — the smart-grouped trade that contains this deal
 export const getTradeGroup = async (req: Request, res: Response) => {
   try {
-    const trade = await Trade.findById(req.params.id).lean();
+    const trade = await Trade.findById(req.params.id).select('-screenshotBeforeUrl -screenshotAfterUrl').lean();
     if (!trade) {
       return res.status(404).json({ message: 'Trade not found' });
     }
@@ -110,13 +122,46 @@ export const getTradeGroup = async (req: Request, res: Response) => {
       },
       { raw: req.query.grouped === 'false' }
     );
-    const group = findGroupOf(units, String(trade._id));
+    const group: any = findGroupOf(units, String(trade._id));
     if (!group) {
       return res.status(404).json({ message: 'Trade group not found' });
+    }
+    // The trade page edits screenshots, so it gets the real image data
+    if (group.hasScreenshotBefore || group.hasScreenshotAfter) {
+      const shots = await Trade.findById(group.journalSourceId || group._id)
+        .select('screenshotBeforeUrl screenshotAfterUrl')
+        .lean();
+      group.screenshotBeforeUrl = shots?.screenshotBeforeUrl || '';
+      group.screenshotAfterUrl = shots?.screenshotAfterUrl || '';
     }
     res.json(group);
   } catch (error: any) {
     res.status(500).json({ message: 'Error retrieving trade group', error: error.message });
+  }
+};
+
+// GET /api/trades/:id/screenshot/:kind — the image itself (browser-cached)
+export const getTradeScreenshot = async (req: Request, res: Response) => {
+  try {
+    const kind = req.params.kind === 'before' ? 'screenshotBeforeUrl' : req.params.kind === 'after' ? 'screenshotAfterUrl' : null;
+    if (!kind) return res.status(400).json({ message: 'Screenshot kind must be "before" or "after"' });
+
+    const doc: any = await Trade.findById(req.params.id).select(kind).lean();
+    const value: string | undefined = doc?.[kind];
+    if (!value) return res.status(404).json({ message: 'Screenshot not found' });
+
+    // Manually entered image links are just redirected to
+    if (/^https?:\/\//i.test(value)) return res.redirect(value);
+
+    const match = /^data:([^;,]+);base64,(.*)$/s.exec(value);
+    if (!match) return res.status(415).json({ message: 'Unsupported screenshot format' });
+
+    // URLs carry ?v=<updatedAt>, so a changed screenshot gets a new URL
+    res.set('Content-Type', match[1]);
+    res.set('Cache-Control', 'private, max-age=604800, immutable');
+    res.send(Buffer.from(match[2], 'base64'));
+  } catch (error: any) {
+    res.status(500).json({ message: 'Error loading screenshot', error: error.message });
   }
 };
 
@@ -204,6 +249,8 @@ export const importTrades = async (req: Request, res: Response) => {
       }
     }
 
+    if (importedCount > 0) invalidateTradeCache();
+
     // Update sync logs
     await SyncStatus.findOneAndUpdate(
       {},
@@ -283,6 +330,7 @@ export const updateTrade = async (req: Request, res: Response) => {
     if (screenshotAfterScale !== undefined) (trade as any).screenshotAfterScale = screenshotAfterScale;
 
     await trade.save();
+    invalidateTradeCache();
 
     // Smart-grouped trade: copy the journal entry to every member deal so
     // filters and per-strategy stats stay consistent.
@@ -340,6 +388,7 @@ export const deleteTrade = async (req: Request, res: Response) => {
       const r = await Trade.deleteMany({ _id: { $in: extraIds }, accountNumber: trade.accountNumber });
       deleted += r.deletedCount || 0;
     }
+    invalidateTradeCache();
     res.json({ message: 'Trade deleted successfully', id: req.params.id, deleted });
   } catch (error: any) {
     res.status(500).json({ message: 'Error deleting trade', error: error.message });
@@ -353,6 +402,7 @@ export const resetDatabase = async (req: Request, res: Response) => {
     await SyncStatus.deleteMany({});
     // We also delete all registered accounts to start fully fresh as requested!
     await MT5Account.deleteMany({});
+    invalidateTradeCache();
     res.json({ message: 'Database reset successfully. All trades and account profiles deleted.' });
   } catch (error: any) {
     res.status(500).json({ message: 'Error resetting database', error: error.message });

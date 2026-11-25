@@ -69,8 +69,8 @@ export const SidebarLayout: React.FC<SidebarLayoutProps> = ({ children }) => {
 
   useEffect(() => {
     fetchGlobalData();
-    // Poll every 8 seconds to automatically stay updated
-    const interval = setInterval(fetchGlobalData, 8000);
+    // Poll every 30 seconds (each poll recalculates stats on the server)
+    const interval = setInterval(fetchGlobalData, 30000);
     return () => clearInterval(interval);
   }, []);
 

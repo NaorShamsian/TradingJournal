@@ -43,12 +43,15 @@ export interface TradeGroup extends RawTrade {
 const JOURNAL_FIELDS = [
   'strategy', 'session', 'emotion', 'mistake', 'mistakeTags', 'notes', 'entryReason', 'exitReason',
   'followedRules', 'selfRating', 'screenshotBeforeUrl', 'screenshotAfterUrl', 'screenshotBeforeScale', 'screenshotAfterScale',
+  // Flags used when trades are loaded without the (large) screenshot data
+  'hasScreenshotBefore', 'hasScreenshotAfter',
 ];
 
 const round = (n: number, d = 2) => Math.round(n * 10 ** d) / 10 ** d;
 
 const hasJournal = (t: RawTrade) =>
   !!(t.notes || t.entryReason || t.exitReason || t.emotion || t.screenshotBeforeUrl || t.screenshotAfterUrl ||
+    t.hasScreenshotBefore || t.hasScreenshotAfter ||
     (t.strategy && t.strategy !== 'Unassigned') || (t.mistakeTags && t.mistakeTags.length));
 
 const buildGroup = (members: RawTrade[]): TradeGroup => {
@@ -86,6 +89,8 @@ const buildGroup = (members: RawTrade[]): TradeGroup => {
     positionsCount: new Set(members.map((t) => t.positionId)).size,
     exitsCount: members.length,
     memberIds: members.map((t) => String(t._id)),
+    // Deal whose journal entry (and screenshots) the group shows
+    journalSourceId: String(journalSource._id),
     rawExits: members.map((t) => ({ ...t, _id: String(t._id) })),
   };
 };

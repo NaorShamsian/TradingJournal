@@ -3,6 +3,7 @@ import {
   getTrades,
   getTradeById,
   getTradeGroup,
+  getTradeScreenshot,
   importTrades,
   updateTrade,
   deleteTrade,
@@ -15,6 +16,7 @@ const router = Router();
 router.get('/', getTrades);
 router.get('/:id/group', getTradeGroup);
 router.get('/:id/candles', getTradeCandles);
+router.get('/:id/screenshot/:kind', getTradeScreenshot);
 router.get('/:id', getTradeById);
 router.post('/import', importTrades);
 router.post('/reset', resetDatabase);
