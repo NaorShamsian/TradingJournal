@@ -8,6 +8,7 @@ import {
   getStatsByStrategy,
   getStatsByHour,
   getDrawdownStats,
+  getCashflow,
 } from '../controllers/statsController';
 
 const router = Router();
@@ -20,5 +21,6 @@ router.get('/by-session', getStatsBySession);
 router.get('/by-strategy', getStatsByStrategy);
 router.get('/by-hour', getStatsByHour);
 router.get('/drawdown', getDrawdownStats);
+router.get('/cashflow', getCashflow);
 
 export default router;

@@ -167,6 +167,15 @@ export interface BalanceOp {
   comment?: string;
 }
 
+export interface CashflowResponse {
+  ops: (BalanceOp & { type?: number })[];
+  totals: { deposits: number; depositCount: number; withdrawals: number; withdrawalCount: number };
+  /** Net P&L of all closed trades, for "share of profit withdrawn" */
+  tradingPnL: number;
+  currentBalance: number | null;
+  currency: string;
+}
+
 export interface CalendarDaySummary {
   _id: string; // YYYY-MM-DD
   netProfit: number;

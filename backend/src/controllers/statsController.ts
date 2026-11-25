@@ -191,6 +191,38 @@ export const getEquityCurve = async (req: Request, res: Response) => {
   }
 };
 
+// GET /api/stats/cashflow — deposits & withdrawals of the active account
+export const getCashflow = async (req: Request, res: Response) => {
+  try {
+    const accountNumber = await getActiveAccountNumber();
+    const [ops, units, account] = await Promise.all([
+      BalanceOperation.find({ accountNumber }).sort({ time: 1 }).lean(),
+      loadTradeUnits(),
+      MT5Account.findOne({ isActive: true }).lean(),
+    ]);
+
+    const round = (n: number) => Math.round(n * 100) / 100;
+    const deposits = ops.filter((o) => o.amount > 0);
+    const withdrawals = ops.filter((o) => o.amount < 0);
+    const sum = (list: typeof ops) => round(list.reduce((s, o) => s + o.amount, 0));
+
+    res.json({
+      ops: ops.map((o) => ({ time: o.time, amount: o.amount, comment: o.comment || '', type: o.type })),
+      totals: {
+        deposits: sum(deposits),
+        depositCount: deposits.length,
+        withdrawals: Math.abs(sum(withdrawals)),
+        withdrawalCount: withdrawals.length,
+      },
+      tradingPnL: round(units.reduce((s, u) => s + u.netProfit, 0)),
+      currentBalance: account?.mt5Info?.balance ?? null,
+      currency: account?.mt5Info?.currency || 'USD',
+    });
+  } catch (error: any) {
+    res.status(500).json({ message: 'Error loading deposits and withdrawals', error: error.message });
+  }
+};
+
 // GET /api/stats/calendar
 export const getCalendarStats = async (req: Request, res: Response) => {
   try {

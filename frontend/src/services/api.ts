@@ -15,6 +15,7 @@ import {
   GroupedTrade,
   CandleResponse,
   BalanceOp,
+  CashflowResponse,
 } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -188,6 +189,12 @@ export const api = {
 
   getStatsByHour: async (): Promise<HourStat[]> => {
     const res = await fetch(`${API_BASE_URL}/stats/by-hour`);
+    return handleResponse(res);
+  },
+
+  /** All deposits and withdrawals of the active account */
+  getCashflow: async (): Promise<CashflowResponse> => {
+    const res = await fetch(`${API_BASE_URL}/stats/cashflow`);
     return handleResponse(res);
   },
 

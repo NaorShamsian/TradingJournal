@@ -13,7 +13,8 @@ import {
   Moon,
   Plus,
   ChevronDown,
-  Wallet
+  Wallet,
+  Banknote
 } from 'lucide-react';
 import { useThemeLang } from '../context/ThemeLangContext';
 import { api } from '../services/api';
@@ -146,6 +147,7 @@ export const SidebarLayout: React.FC<SidebarLayoutProps> = ({ children }) => {
     { name: t('analytics'), href: '/analytics', icon: LineChart },
     { name: t('syncCenter'), href: '/sync', icon: RefreshCw },
     { name: t('account'), href: '/account', icon: Wallet },
+    { name: t('payouts'), href: '/payouts', icon: Banknote },
     { name: t('settings'), href: '/settings', icon: SettingsIcon },
   ];
 
@@ -333,7 +335,8 @@ export const SidebarLayout: React.FC<SidebarLayoutProps> = ({ children }) => {
       </aside>
 
       {/* Main Content Area */}
-      <div className={`flex flex-col flex-1 min-h-screen ${
+      {/* min-w-0: let this flex column shrink to the screen width on phones */}
+      <div className={`flex flex-col flex-1 min-w-0 min-h-screen ${
         lang === 'he' ? 'md:pr-64 md:pl-0' : 'md:pl-64 md:pr-0'
       }`}>
         
